@@ -2,3 +2,4 @@ results/
 results/*
 src/logs/
 src/logs/*
+.vscode/
