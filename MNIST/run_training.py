@@ -1,5 +1,6 @@
 # tensorflow
 import tensorflow as tf
+from tensorflow.python.keras.engine import training
 
 # Configure gpu
 gpus = tf.config.list_physical_devices("GPU")
@@ -25,6 +26,8 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
+from helpers import log, report, plot_losses, plot_reconstruction_losses, plot_kld_lossses, plot_kld_diffs, plot_lambdas
+
 plt.style.use("ggplot")
 
 # data preprocessing
@@ -40,8 +43,6 @@ python_random.seed(0)
 np.random.seed(0)
 tf.random.set_seed(0)
 
-
-# Hyperparameters
 KLD_aim = 1.0  # SWEEP
 
 # build the BVAE
@@ -52,17 +53,27 @@ vae_model.compile(optimizer=keras.optimizers.SGD(learning_rate=0.001))
 
 # Lagrangian loss function
 @tf.function
-def lagrangian(reconstr_loss, kld, Lambda):
-    # constraint h
-    h = tf.nn.relu(kld - KLD_aim)
-    # Lagrangian
-    l = reconstr_loss + Lambda * h
+def lagrangian(reconstr_loss, kld, constraint_target, Lambda, constrained_variable: str='kld'):
+    # constrain kld
+    if constrained_variable=='kld':
+        # constraint h
+        h = tf.nn.relu(kld - constraint_target)
+        # Lagrangian
+        l = reconstr_loss + Lambda * h
+    # constrain reconstruction error
+    elif constrained_variable=='reconstr_err':
+        # constraint h
+        h = tf.nn.relu(reconstr_loss - constraint_target)
+        # Lagrangian
+        l = kld + Lambda * h
+    else:
+        raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
     return tf.reduce_mean(l)
 
 
 # Warmup training step (this is just train_w_step with lambda = 0)
 @tf.function
-def warmup_step(x):
+def warmup_step(x, constrained_variable: str='kld'):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -78,7 +89,12 @@ def warmup_step(x):
         kld = -0.5 * tf.reduce_mean(
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
-        loss = reconstruction_loss  # optimise for reconstruction loss only
+        if constrained_variable=='kld':
+            loss = reconstruction_loss  # optimise for reconstruction err only
+        elif constrained_variable=='reconstr_err':
+            loss = kld  # optimise for kld only
+        else:
+            raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
     # apply gradient
     grads = tape.gradient(loss, vae_model.trainable_weights)
     vae_model.optimizer.apply_gradients(zip(grads, vae_model.trainable_weights))
@@ -96,7 +112,7 @@ def warmup_step(x):
 
 # Reconstruction training step (updates model params)
 @tf.function
-def train_w_step(x, Lambda):
+def train_w_step(x, Lambda, constraint_aim, constrained_variable: str='kld'):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -113,7 +129,7 @@ def train_w_step(x, Lambda):
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
         # loss = lagrangian
-        loss = lagrangian(reconstruction_loss, kld, Lambda)
+        loss = lagrangian(reconstruction_loss, kld, constraint_aim, Lambda, constrained_variable)
     # apply gradient
     grads = tape.gradient(loss, vae_model.trainable_weights)
     vae_model.optimizer.apply_gradients(zip(grads, vae_model.trainable_weights))
@@ -131,7 +147,7 @@ def train_w_step(x, Lambda):
 
 # Constraint training step (updates lambda). Pass optimizer.
 @tf.function
-def train_lambda_step(x, opt, Lambda):
+def train_lambda_step(x, opt, Lambda, constraint_aim, constrained_variable: str='kld'):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -148,7 +164,7 @@ def train_lambda_step(x, opt, Lambda):
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
         # loss = - lagrangian (SGA)
-        loss = -lagrangian(reconstruction_loss, kld, Lambda)
+        loss = -lagrangian(reconstruction_loss, kld, constraint_aim, Lambda, constrained_variable)
     # calculate and apply gradient
     grad = tape.gradient(target=loss, sources=[Lambda])
     # opt = tf.keras.optimizers.Adam()
@@ -178,39 +194,24 @@ learning_rate_lambda = keras.optimizers.schedules.InverseTimeDecay(
 opt_lambda = tf.keras.optimizers.SGD(learning_rate=learning_rate_lambda)
 
 # record training history in these lists
-losses = []
-reconstruction_losses = []
-kld_losses = []
-Lambdas = []
-kld_diff = []
-epoch_times = []
-
-# logging helper function
-def log(logits):
-    losses.append(logits["loss"])
-    reconstruction_losses.append(logits["reconstruction_loss"])
-    kld_losses.append(logits["kl_loss"])
-    Lambdas.append(logits["lambda"])
-    kld_diff.append(logits["kld_diff"])
-
-
-# reporting helper function
-def report(step, logits):
-    print(f"\nTraining logs at step {step}:")
-    for metric, value in logits.items():
-        print(metric, value.numpy())
-    print("Seen: %d samples" % ((step + 1) * batch_size))
+training_logs = {
+"losses" : [],
+"reconstruction_losses" : [],
+"kld_losses" : [],
+"Lambdas" : [],
+"kld_diff" : [],
+"epoch_times" : []
+}
 
 
 # Training loop
-# TODO: write functions for logging and reporting to clean up code
-def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
+def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda, constraint_aim, constrained_variable: str='kld'):
     # warmup
     t_warm_0 = time.time()
     for step, train_image_batch in enumerate(dataset):
-        logits = warmup_step(train_image_batch)
+        logits = warmup_step(train_image_batch, constrained_variable)
         # log
-        log(logits)
+        log(logits, training_logs)
 
         if step >= warmup_iters:
             break
@@ -233,10 +234,10 @@ def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
         enum_data = enumerate(dataset)
         for step, train_image_batch in enum_data:
             # perform one SGA step for lambda
-            logits = train_lambda_step(train_image_batch, opt_lambda, Lambda)
+            logits = train_lambda_step(train_image_batch, opt_lambda, Lambda, constraint_aim, constrained_variable)
             steps_lambda += 1
             # log
-            log(logits)
+            log(logits, training_logs)
 
             # perform l SGD steps for model params
             for i in range(l):
@@ -244,101 +245,38 @@ def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
                     step, train_image_batch = next(enum_data)
                 except StopIteration:
                     break
-                logits = train_w_step(train_image_batch, Lambda)
+                logits = train_w_step(train_image_batch, Lambda, constraint_aim, constrained_variable)
                 steps_w += 1
                 # log
-                log(logits)
+                log(logits, training_logs)
                 # report every 200 batches.
                 if step % 200 == 0:
-                    report(step, logits)
+                    report(batch_size, step, logits)
 
+            # artificially lower d by only updating every nd-th step
             if step % nd == 0:
                 # increment l by d
                 l = l + d
 
             # report every 200 batches.
             if step % 200 == 0:
-                report(step, logits)
+                report(batch_size, step, logits)
         t_epoch_1 = time.time()
         epoch_time = t_epoch_1 - t_epoch_0
-        epoch_times.append(epoch_time)
+        training_logs["epoch_times"].append(epoch_time)
         print(f"\nEpoch time: {epoch_time:.2f}s")
 
-    mean_epoch_time = np.mean(epoch_times)
+    mean_epoch_time = np.mean(training_logs["epoch_times"])
     print(f"\nTraining complete! Mean epoch time: {mean_epoch_time:.2f}s")
 
 
 # TRAIN
-train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda)
-
-# plot losses
-def plot_losses(losses):
-    plt.figure(dpi=100)
-    plt.plot([abs(loss) for loss in losses])
-    plt.xlabel("Training step")
-    plt.ylabel("Loss (absolute value)")
-    # save
-    plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTloss_{KLD_aim}_KLDaim.png")
-
-
-# plot reconstruction losses
-def plot_reconstruction_losses(reconstruction_losses):
-    plt.figure(dpi=100)
-    plt.plot(reconstruction_losses)
-    plt.xlabel("Training step")
-    plt.ylabel("Reconstruction Loss")
-    # save
-    plt.savefig(
-        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTrecnstr_loss_{KLD_aim}_KLDaim.png"
-    )
-
-
-# plot kld losses
-def plot_kld_lossses(kld_losses):
-    plt.figure(dpi=100)
-    plt.plot(kld_losses)
-    plt.xlabel("Training step")
-    plt.ylabel("KL Loss")
-    plt.yscale("log")
-    # save
-    plt.savefig(
-        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_loss_{KLD_aim}_KLDaim.png"
-    )
-
-
-# plot kld diffs
-def plot_kld_diffs(kld_diff):
-    plt.figure(dpi=100)
-    plt.plot(kld_diff)
-    plt.xlabel("Training step")
-    plt.ylabel("KLD - KLD_aim")
-    plt.yscale("log")
-    # save
-    plt.savefig(
-        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_diff_{KLD_aim}_KLDaim.png"
-    )
-
-
-# plot lambdas
-def plot_lambdas(Lambdas):
-    plt.figure(dpi=100)
-    plt.plot(Lambdas)
-    plt.xlabel("Training step")
-    plt.ylabel("Lambda")
-    # save
-    plt.savefig(
-        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTlambdas_{KLD_aim}_KLDaim.png"
-    )
+train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda, constraint_aim=KLD_aim, constrained_variable='kld')
 
 
 # plot losses
-plot_losses(losses)
-plt.show()
-plot_reconstruction_losses(reconstruction_losses)
-plt.show()
-plot_kld_lossses(kld_losses)
-plt.show()
-plot_kld_diffs(kld_diff)
-plt.show()
-plot_lambdas(Lambdas)
-plt.show()
+plot_losses(training_logs["losses"])
+plot_reconstruction_losses(training_logs["reconstruction_losses"])
+plot_kld_lossses(training_logs["kld_losses"])
+plot_kld_diffs(training_logs["kld_diff"])
+plot_lambdas(training_logs["Lambdas"])
