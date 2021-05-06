@@ -10,6 +10,7 @@ class Sampling(layers.Layer):
         epsilon = tf.keras.backend.random_normal(shape=tf.shape(z_mean))
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
+
 # latent dimension
 latent_dim = 2
 
@@ -41,7 +42,7 @@ decoder_VAE.summary()
 class constr_VAE(keras.Model):
     # constructor
     # remove beta, add in KLD_aim,
-    def __init__(self, encoder, decoder, KLD_aim, **kwargs): 
+    def __init__(self, encoder, decoder, KLD_aim, **kwargs):
         super(constr_VAE, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder

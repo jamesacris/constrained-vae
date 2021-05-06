@@ -4,7 +4,7 @@ import tensorflow as tf
 # Configure gpu
 gpus = tf.config.list_physical_devices("GPU")
 print(gpus)
-if gpus: 
+if gpus:
     # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
     try:
         tf.config.experimental.set_virtual_device_configuration(
@@ -42,7 +42,7 @@ tf.random.set_seed(0)
 
 
 # Hyperparameters
-KLD_aim = 1.0 # SWEEP
+KLD_aim = 1.0  # SWEEP
 
 # build the BVAE
 vae_model = constr_VAE(encoder=encoder_VAE, decoder=decoder_VAE, KLD_aim=KLD_aim)
@@ -128,6 +128,7 @@ def train_w_step(x, Lambda):
     }
     return logits
 
+
 # Constraint training step (updates lambda). Pass optimizer.
 @tf.function
 def train_lambda_step(x, opt, Lambda):
@@ -147,7 +148,7 @@ def train_lambda_step(x, opt, Lambda):
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
         # loss = - lagrangian (SGA)
-        loss = - lagrangian(reconstruction_loss, kld, Lambda)
+        loss = -lagrangian(reconstruction_loss, kld, Lambda)
     # calculate and apply gradient
     grad = tape.gradient(target=loss, sources=[Lambda])
     # opt = tf.keras.optimizers.Adam()
@@ -163,13 +164,17 @@ def train_lambda_step(x, opt, Lambda):
     }
     return logits
 
+
 # training parameters
-warmup_iters = 100 # SWEEP
-l = 1 # SWEEP
-d = 1 # SWEEP
+warmup_iters = 100  # SWEEP
+l = 1  # SWEEP
+d = 1  # SWEEP
+nd = 2
 epochs = 5
 Lambda = tf.Variable(0.0)
-learning_rate_lambda = keras.optimizers.schedules.InverseTimeDecay(initial_learning_rate=0.01, decay_steps=1, decay_rate=1e-3) # SWEEP (decay rate)
+learning_rate_lambda = keras.optimizers.schedules.InverseTimeDecay(
+    initial_learning_rate=0.01, decay_steps=1, decay_rate=1e-3
+)  # SWEEP (decay rate)
 opt_lambda = tf.keras.optimizers.SGD(learning_rate=learning_rate_lambda)
 
 # record training history in these lists
@@ -188,14 +193,14 @@ def log(logits):
     Lambdas.append(logits["lambda"])
     kld_diff.append(logits["kld_diff"])
 
+
 # reporting helper function
 def report(step, logits):
-    print(
-        f"\nTraining logs at step {step}:"
-    )
+    print(f"\nTraining logs at step {step}:")
     for metric, value in logits.items():
         print(metric, value.numpy())
     print("Seen: %d samples" % ((step + 1) * batch_size))
+
 
 # Training loop
 # TODO: write functions for logging and reporting to clean up code
@@ -216,7 +221,7 @@ def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
     print("\nTraining logs at end of warmup:")
     for metric, value in logits.items():
         print(metric, value.numpy())
-    
+
     steps_lambda = 0
     steps_w = 0
 
@@ -246,9 +251,10 @@ def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
                 # report every 200 batches.
                 if step % 200 == 0:
                     report(step, logits)
-            
-            # increment l by d
-            l = l + d
+
+            if step % nd == 0:
+                # increment l by d
+                l = l + d
 
             # report every 200 batches.
             if step % 200 == 0:
@@ -261,6 +267,7 @@ def train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda):
     mean_epoch_time = np.mean(epoch_times)
     print(f"\nTraining complete! Mean epoch time: {mean_epoch_time:.2f}s")
 
+
 # TRAIN
 train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda)
 
@@ -268,48 +275,61 @@ train_model(warmup_iters, l, d, epochs, Lambda, opt_lambda)
 def plot_losses(losses):
     plt.figure(dpi=100)
     plt.plot([abs(loss) for loss in losses])
-    plt.xlabel('Training step')
-    plt.ylabel('Loss (absolute value)')
+    plt.xlabel("Training step")
+    plt.ylabel("Loss (absolute value)")
     # save
-    # plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/loss_{KLD_aim}_KLDaim.png")
+    plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTloss_{KLD_aim}_KLDaim.png")
+
 
 # plot reconstruction losses
 def plot_reconstruction_losses(reconstruction_losses):
     plt.figure(dpi=100)
     plt.plot(reconstruction_losses)
-    plt.xlabel('Training step')
-    plt.ylabel('Reconstruction Loss')
+    plt.xlabel("Training step")
+    plt.ylabel("Reconstruction Loss")
     # save
-    # plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/recnstr_loss_{KLD_aim}_KLDaim.png")
+    plt.savefig(
+        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTrecnstr_loss_{KLD_aim}_KLDaim.png"
+    )
+
 
 # plot kld losses
 def plot_kld_lossses(kld_losses):
     plt.figure(dpi=100)
     plt.plot(kld_losses)
-    plt.xlabel('Training step')
-    plt.ylabel('KL Loss')
-    plt.yscale('log')
+    plt.xlabel("Training step")
+    plt.ylabel("KL Loss")
+    plt.yscale("log")
     # save
-    # plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/kld_loss_{KLD_aim}_KLDaim.png")
+    plt.savefig(
+        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_loss_{KLD_aim}_KLDaim.png"
+    )
+
 
 # plot kld diffs
 def plot_kld_diffs(kld_diff):
     plt.figure(dpi=100)
     plt.plot(kld_diff)
-    plt.xlabel('Training step')
-    plt.ylabel('KLD - KLD_aim')
-    plt.yscale('log')
+    plt.xlabel("Training step")
+    plt.ylabel("KLD - KLD_aim")
+    plt.yscale("log")
     # save
-    # plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/kld_diff_{KLD_aim}_KLDaim.png")
+    plt.savefig(
+        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_diff_{KLD_aim}_KLDaim.png"
+    )
+
 
 # plot lambdas
 def plot_lambdas(Lambdas):
     plt.figure(dpi=100)
     plt.plot(Lambdas)
-    plt.xlabel('Training step')
-    plt.ylabel('Lambda')
+    plt.xlabel("Training step")
+    plt.ylabel("Lambda")
     # save
-    # plt.savefig(f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/lambdas_{KLD_aim}_KLDaim.png")
+    plt.savefig(
+        f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTlambdas_{KLD_aim}_KLDaim.png"
+    )
+
 
 # plot losses
 plot_losses(losses)
