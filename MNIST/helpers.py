@@ -7,7 +7,7 @@ def log(logits, training_logs):
     training_logs["reconstruction_losses"].append(logits["reconstruction_loss"])
     training_logs["kld_losses"].append(logits["kl_loss"])
     training_logs["Lambdas"].append(logits["lambda"])
-    training_logs["kld_diff"].append(logits["kld_diff"])
+    # training_logs["kld_diff"].append(logits["kld_diff"])
 
 
 # reporting helper function
@@ -48,7 +48,7 @@ def plot_kld_lossses(kld_losses):
     plt.plot(kld_losses)
     plt.xlabel("Training step")
     plt.ylabel("KL Loss")
-    plt.yscale("log")
+    # plt.yscale("log")
     # save
     # plt.savefig(
         # f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_loss_{KLD_aim}_KLDaim_{nd}_nd.png"
@@ -57,17 +57,17 @@ def plot_kld_lossses(kld_losses):
 
 
 # plot kld diffs
-def plot_kld_diffs(kld_diff):
-    plt.figure(dpi=100)
-    plt.plot(kld_diff)
-    plt.xlabel("Training step")
-    plt.ylabel("KLD - KLD_aim")
-    plt.yscale("log")
-    # save
-    # plt.savefig(
-        # f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_diff_{KLD_aim}_KLDaim_{nd}_nd.png"
-    # )
-    plt.show()
+# def plot_kld_diffs(kld_diff):
+#     plt.figure(dpi=100)
+#     plt.plot(kld_diff)
+#     plt.xlabel("Training step")
+#     plt.ylabel("KLD - KLD_aim")
+#     plt.yscale("log")
+#     # save
+#     # plt.savefig(
+#         # f"figs/dual_paper_alg/{KLD_aim}_KLD_aim/TESTkld_diff_{KLD_aim}_KLDaim_{nd}_nd.png"
+#     # )
+#     plt.show()
 
 
 # plot lambdas
