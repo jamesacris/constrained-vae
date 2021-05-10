@@ -6,10 +6,10 @@ from helpers import subplot_image
 from beta_vae_model import latent_dim
 
 # load encoder & decoder
-encoder = tf.keras.models.load_model('./models/BVAE_encoder_initial')
+encoder = tf.keras.models.load_model('./models/BVAE_encoder_dense_50ep')
 encoder.summary()
 
-decoder = tf.keras.models.load_model('./models/BVAE_decoder_initial')
+decoder = tf.keras.models.load_model('./models/BVAE_decoder_dense_50ep')
 decoder.summary()
 
 

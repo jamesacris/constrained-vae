@@ -14,6 +14,10 @@ class Sampling(layers.Layer):
 # latent dimension
 latent_dim = 10
 
+#######
+# CNN #
+#######
+
 # build the encoder (64*64*1 -> 10)
 image_input = keras.Input(shape=(64, 64, 1))
 x = layers.Flatten()(image_input)

@@ -24,7 +24,7 @@ def plot_losses(losses):
     plt.ylabel("Loss (absolute value)")
     plt.yscale("log")
     # save
-    # plt.savefig(f"figs/BVAE/initial_run_loss.png")
+    plt.savefig(f"figs/BVAE/loss_dense_50ep.png")
     plt.show()
 
 
@@ -36,9 +36,9 @@ def plot_reconstruction_losses(reconstruction_losses):
     plt.ylabel("Reconstruction Loss")
     plt.yscale("log")
     # save
-    # plt.savefig(
-    #     f"figs/BVAE/initial_run_reconstr_loss.png"
-    # )
+    plt.savefig(
+        f"figs/BVAE/reconstr_loss_dense_50ep.png"
+    )
     plt.show()
 
 
@@ -50,9 +50,9 @@ def plot_kld_lossses(kld_losses):
     plt.ylabel("KL Loss")
     plt.yscale("log")
     # save
-    # plt.savefig(
-    #     f"figs/BVAE/initial_run_kld.png"
-    # )
+    plt.savefig(
+        f"figs/BVAE/kld_dense_50ep.png"
+    )
     plt.show()
 
 
