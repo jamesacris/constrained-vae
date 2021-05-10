@@ -16,7 +16,9 @@ latent_dim = 10
 
 # build the encoder (64*64*1 -> 10)
 image_input = keras.Input(shape=(64, 64, 1))
-x = layers.Conv2D(32, kernel_size=(8, 8), activation="relu", padding="same")(image_input)
+x = layers.Conv2D(32, kernel_size=(8, 8), activation="relu", padding="same")(
+    image_input
+)
 x = layers.MaxPool2D(pool_size=(2, 2))(x)
 x = layers.BatchNormalization()(x)
 x = layers.Conv2D(32, kernel_size=(6, 6), activation="relu", padding="same")(x)
