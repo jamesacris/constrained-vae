@@ -14,16 +14,15 @@ class Sampling(layers.Layer):
 # latent dimension
 latent_dim = 10
 
-#######
-# CNN #
-#######
-
 # build the encoder (64*64*1 -> 10)
 image_input = keras.Input(shape=(64, 64, 1))
-x = layers.Flatten()(image_input)
-x = layers.Dense(1200, activation='relu')(x)
-x = layers.Dense(1200, activation='relu')(x)
-# TODO: Bernoulli (apparently for noise)
+x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
+x = layers.MaxPool2D(pool_size=(2, 2))(x)
+x = layers.BatchNormalization()(x)
+x = layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
+x = layers.MaxPool2D(pool_size=(2, 2))(x)
+x = layers.BatchNormalization()(x)
+x = layers.Flatten()(x)
 z_mean = layers.Dense(latent_dim, name="z_mean")(x)
 z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
 z_output = Sampling()([z_mean, z_log_var])
@@ -32,10 +31,13 @@ encoder_VAE.summary()
 
 # build the decoder (10 -> 64*64*1)
 z_input = keras.Input(shape=(latent_dim,))
-x = layers.Dense(1200, activation="tanh")(z_input)
-x = layers.Dense(1200, activation="tanh")(x)
-x = layers.Dense(1200, activation="tanh")(x)
-x = layers.Dense(4096, activation="tanh")(x)
+x = layers.Dense(4096, activation="tanh")(z_input)
+x = layers.Reshape((64, 64, 1))(x)
+x = layers.Conv2DTranspose(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
+x = layers.BatchNormalization()(x)
+x = layers.Conv2DTranspose(32, kernel_size=(5, 5), activation="relu", padding="same")(x)
+x = layers.BatchNormalization()(x)
+x = layers.Conv2DTranspose(1, kernel_size=(5, 5), activation="sigmoid", padding="same")(x)
 image_output = layers.Reshape((64, 64))(x)
 decoder_VAE = keras.Model(z_input, image_output, name="decoder")
 decoder_VAE.summary()
