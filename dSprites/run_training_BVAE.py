@@ -52,7 +52,7 @@ from helpers import plot_losses, plot_reconstruction_losses, plot_kld_lossses
 
 beta = 4.0
 
-epochs = 50
+epochs = 10
 
 ###################
 
@@ -82,8 +82,8 @@ train_model(
 
 
 # save model
-encoder_VAE.save('./models/BVAE_encoder_dense_50ep')
-decoder_VAE.save('./models/BVAE_decoder_dense_50ep')
+encoder_VAE.save('./models/BVAE_encoder_cnn_10ep')
+decoder_VAE.save('./models/BVAE_decoder_cnn_10ep')
 
 # plot losses
 plot_losses(training_logs["losses"])
