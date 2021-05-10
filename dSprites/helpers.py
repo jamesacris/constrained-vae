@@ -17,19 +17,19 @@ def report(batch_size, step, logits):
 
 
 # plot losses
-def plot_losses(losses):
+def plot_losses(losses, name):
     plt.figure(dpi=100)
     plt.plot([abs(loss) for loss in losses])
     plt.xlabel("Training step")
     plt.ylabel("Loss (absolute value)")
     plt.yscale("log")
     # save
-    plt.savefig(f"figs/BVAE/loss_dense_50ep.png")
+    plt.savefig(f"figs/BVAE/CNN/loss_{name}.png")
     plt.show()
 
 
 # plot reconstruction losses
-def plot_reconstruction_losses(reconstruction_losses):
+def plot_reconstruction_losses(reconstruction_losses, name):
     plt.figure(dpi=100)
     plt.plot(reconstruction_losses)
     plt.xlabel("Training step")
@@ -37,13 +37,13 @@ def plot_reconstruction_losses(reconstruction_losses):
     plt.yscale("log")
     # save
     plt.savefig(
-        f"figs/BVAE/reconstr_loss_dense_50ep.png"
+        f"figs/BVAE/CNN/reconstr_loss_{name}.png"
     )
     plt.show()
 
 
 # plot kld losses
-def plot_kld_lossses(kld_losses):
+def plot_kld_lossses(kld_losses, name):
     plt.figure(dpi=100)
     plt.plot(kld_losses)
     plt.xlabel("Training step")
@@ -51,13 +51,13 @@ def plot_kld_lossses(kld_losses):
     plt.yscale("log")
     # save
     plt.savefig(
-        f"figs/BVAE/kld_dense_50ep.png"
+        f"figs/BVAE/CNN/kld_{name}.png"
     )
     plt.show()
 
 
 # plot lambdas
-def plot_lambdas(Lambdas):
+def plot_lambdas(Lambdas, name):
     plt.figure(dpi=100)
     plt.plot(Lambdas)
     plt.xlabel("Training step")
