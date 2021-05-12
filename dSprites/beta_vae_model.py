@@ -16,7 +16,9 @@ latent_dim = 10
 
 # build the encoder (64*64*1 -> 10)
 image_input = keras.Input(shape=(64, 64, 1))
-x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
+x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(
+    image_input
+)
 x = layers.MaxPool2D(pool_size=(2, 2))(x)
 x = layers.BatchNormalization()(x)
 x = layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
@@ -37,7 +39,9 @@ x = layers.Conv2DTranspose(64, kernel_size=(3, 3), activation="relu", padding="s
 x = layers.BatchNormalization()(x)
 x = layers.Conv2DTranspose(32, kernel_size=(5, 5), activation="relu", padding="same")(x)
 x = layers.BatchNormalization()(x)
-x = layers.Conv2DTranspose(1, kernel_size=(5, 5), activation="sigmoid", padding="same")(x)
+x = layers.Conv2DTranspose(1, kernel_size=(5, 5), activation="sigmoid", padding="same")(
+    x
+)
 image_output = layers.Reshape((64, 64))(x)
 decoder_VAE = keras.Model(z_input, image_output, name="decoder")
 decoder_VAE.summary()
@@ -50,3 +54,5 @@ class BVAE(keras.Model):
         self.encoder = encoder
         self.decoder = decoder
         self.beta = beta
+        self.N = 64 * 64
+        self.M = latent_dim

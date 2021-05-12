@@ -17,15 +17,15 @@ def train_step(x, vae_model):
         # decoding
         x_prime = vae_model.decoder(z)
         # reconstruction error by binary crossentropy loss
-        reconstruction_loss = (
-            tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime)) * 64 * 64
+        reconstruction_loss = tf.reduce_mean(
+            tf.reduce_sum(keras.losses.binary_crossentropy(x, x_prime), axis=(1, 2))
         )
         # KL divergence
         kld = -0.5 * tf.reduce_mean(
-            1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
+            tf.reduce_sum(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var), axis=1)
         )
         # loss = reconstruction error + KL divergence
-        loss = reconstruction_loss + vae_model.beta * kld
+        loss = reconstruction_loss + vae_model.beta * (vae_model.M / vae_model.N) * kld
     # apply gradient
     grads = tape.gradient(loss, vae_model.trainable_weights)
     vae_model.optimizer.apply_gradients(zip(grads, vae_model.trainable_weights))
@@ -37,6 +37,7 @@ def train_step(x, vae_model):
         "kl_loss": kld,
     }
     return logits
+
 
 # training loop
 def train_model(vae_model, dataset, batch_size, epochs, training_logs):
@@ -59,6 +60,6 @@ def train_model(vae_model, dataset, batch_size, epochs, training_logs):
         epoch_time = t1 - t0
         training_logs["epoch_times"].append(epoch_time)
         print(f"\nEpoch time: {epoch_time:.2f}s")
-    
+
     mean_epoch_time = np.mean(training_logs["epoch_times"])
     print(f"\nTraining complete! Mean epoch time: {mean_epoch_time:.2f}s")
