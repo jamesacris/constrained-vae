@@ -6,6 +6,10 @@ from matplotlib import pyplot as plt
 import numpy as np
 import seaborn as sns
 
+from sklearn.linear_model import SGDClassifier
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import make_pipeline
+
 # Configure gpu
 gpus = tf.config.list_physical_devices("GPU")
 print(gpus)
@@ -102,36 +106,58 @@ def show_density(imgs):
     ax.set_yticks([])
 
 
-# Conditional sampling
-
-latent_label_to_fix = "posX"
-_i = latents_names.index(latent_label_to_fix)
-
-batches = 2
+# get training data
+batches = 1  # 1000
 batch_size = 128
 
 z_diffs = []
-for i in range(batches):
-    z_diffs_batch = []
-    for j in range(batch_size):
+latent_indices = []
+for n, latent_label_to_fix in enumerate(latents_names[1:]):
+    latent_index = n + 1
 
-        latent_value_index_fixed = np.random.randint(0, latents_sizes[_i])
+    for i in range(batches):
+        z_diffs_batch = []
+        for j in range(batch_size):
 
-        latents_sampled = sample_latent(size=2)
-        latents_sampled[:, _i] = latent_value_index_fixed
-        indices_sampled = latent_to_index(latents_sampled)
-        imgs_sampled = imgs[indices_sampled]
+            # sample the latent variables
+            latents_sampled = sample_latent(size=2)
 
-        img_pair = tf.convert_to_tensor(imgs_sampled)
+            # fix one of the latent variables (make second equal first)
+            latents_sampled[1, latent_index] = latents_sampled[0, latent_index]
 
-        # encode
-        z = encoder.predict(img_pair)
-        z_mean = z[0]
-        # compute z_diff
-        z_diff = abs(z_mean[0] - z_mean[1])
+            # find the corresponding images
+            indices_sampled = latent_to_index(latents_sampled)
+            imgs_sampled = imgs[indices_sampled]
+            img_pair = tf.convert_to_tensor(imgs_sampled)
 
-        z_diffs_batch.append(z_diff)
-    z_diffs_batch = np.mean(np.array(z_diffs_batch), axis=0)
-    z_diffs.append(z_diffs_batch)
+            # encode
+            z = encoder.predict(img_pair)
+            z_mean = z[0]
 
-print(z_diffs)
+            # compute z_diff
+            z_diff = abs(z_mean[0] - z_mean[1])
+
+            # record
+            z_diffs_batch.append(z_diff)
+        z_diffs_batch = np.mean(np.array(z_diffs_batch), axis=0)
+        z_diffs.append(z_diffs_batch)
+        latent_indices.append(latent_index)
+
+
+# Training data for linear classifier (z_diffs)
+x_train = np.array(z_diffs)
+
+# Training labels for linear classifier (1-dim array of one_hot with length len(zdiffs))
+y_train = np.array(latent_indices)
+
+
+# sklearn linear classifier
+classifier = make_pipeline(StandardScaler(), SGDClassifier(loss="log", max_iter=100))
+
+# train
+classifier.fit(x_train, y_train)
+
+# TODO:
+
+# disentanglement_score = classifier.score(x_train, y_train)
+# print(disentanglement_score)
