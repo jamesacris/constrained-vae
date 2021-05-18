@@ -37,8 +37,6 @@ encoder.summary()
 decoder = tf.keras.models.load_model("./models/BVAE_decoder_cnn_20epochs_4.0beta")
 decoder.summary()
 
-# evaluate disentanglement
-
 # Change figure aesthetics
 sns.set_context("talk", font_scale=1.2, rc={"lines.linewidth": 1.5})
 
@@ -106,50 +104,56 @@ def show_density(imgs):
     ax.set_yticks([])
 
 
-# get training data
-batches = 1  # 1000
+def get_zdiffs(batches, batch_size):
+    z_diffs = []
+    latent_indices = []
+    for n, latent_label_to_fix in enumerate(latents_names[1:]):
+        latent_index = n + 1
+
+        for i in range(batches):
+            z_diffs_batch = []
+            for j in range(batch_size):
+
+                # sample the latent variables
+                latents_sampled = sample_latent(size=2)
+
+                # fix one of the latent variables (make second equal first)
+                latents_sampled[1, latent_index] = latents_sampled[0, latent_index]
+
+                # find the corresponding images
+                indices_sampled = latent_to_index(latents_sampled)
+                imgs_sampled = imgs[indices_sampled]
+                img_pair = tf.convert_to_tensor(imgs_sampled)
+
+                # encode
+                z = encoder.predict(img_pair)
+                z_mean = z[0]
+
+                # compute z_diff
+                z_diff = abs(z_mean[0] - z_mean[1])
+
+                # record
+                z_diffs_batch.append(z_diff)
+
+            # compute mean of zdiffs over one batch
+            z_diffs_batch = np.mean(np.array(z_diffs_batch), axis=0)
+
+            # record mean zdiff and the corresponding label
+            z_diffs.append(z_diffs_batch)
+            latent_indices.append(latent_index)
+    return {
+        "z_diffs": z_diffs,
+        "latent_indices": latent_indices,
+    }
+
+
 batch_size = 128
 
-z_diffs = []
-latent_indices = []
-for n, latent_label_to_fix in enumerate(latents_names[1:]):
-    latent_index = n + 1
+# prep training data
+training_data = get_zdiffs(10, batch_size)
 
-    for i in range(batches):
-        z_diffs_batch = []
-        for j in range(batch_size):
-
-            # sample the latent variables
-            latents_sampled = sample_latent(size=2)
-
-            # fix one of the latent variables (make second equal first)
-            latents_sampled[1, latent_index] = latents_sampled[0, latent_index]
-
-            # find the corresponding images
-            indices_sampled = latent_to_index(latents_sampled)
-            imgs_sampled = imgs[indices_sampled]
-            img_pair = tf.convert_to_tensor(imgs_sampled)
-
-            # encode
-            z = encoder.predict(img_pair)
-            z_mean = z[0]
-
-            # compute z_diff
-            z_diff = abs(z_mean[0] - z_mean[1])
-
-            # record
-            z_diffs_batch.append(z_diff)
-        z_diffs_batch = np.mean(np.array(z_diffs_batch), axis=0)
-        z_diffs.append(z_diffs_batch)
-        latent_indices.append(latent_index)
-
-
-# Training data for linear classifier (z_diffs)
-x_train = np.array(z_diffs)
-
-# Training labels for linear classifier (1-dim array of one_hot with length len(zdiffs))
-y_train = np.array(latent_indices)
-
+x_train = np.array(training_data["z_diffs"])
+y_train = np.array(training_data["latent_indices"])
 
 # sklearn linear classifier
 classifier = make_pipeline(StandardScaler(), SGDClassifier(loss="log", max_iter=100))
@@ -157,7 +161,13 @@ classifier = make_pipeline(StandardScaler(), SGDClassifier(loss="log", max_iter=
 # train
 classifier.fit(x_train, y_train)
 
-# TODO:
+# get testing data to evaluate disentanglement metric
+batches = 1  # 1000 per factor, 5000 total
+test_data = get_zdiffs(batches, batch_size)
 
-# disentanglement_score = classifier.score(x_train, y_train)
-# print(disentanglement_score)
+x_test = np.array(test_data["z_diffs"])
+y_test = np.array(test_data["latent_indices"])
+
+# evaluate disentanglement metric
+disentanglement_score = classifier.score(x_test, y_test)
+print(disentanglement_score)
