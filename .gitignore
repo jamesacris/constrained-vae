@@ -3,3 +3,5 @@ results/*
 src/logs/
 src/logs/*
 .vscode/
+tmp/
+tmp/*
