@@ -150,19 +150,22 @@ def get_zdiffs(batches, batch_size):
 batch_size = 128
 
 # prep training data
-training_data = get_zdiffs(10, batch_size)
+training_data = get_zdiffs(10000, batch_size)
 
 x_train = np.array(training_data["z_diffs"])
 y_train = np.array(training_data["latent_indices"])
 
 # sklearn linear classifier
-classifier = make_pipeline(StandardScaler(), SGDClassifier(loss="log", max_iter=100))
+classifier = make_pipeline(
+    StandardScaler(), SGDClassifier(loss="log", early_stopping=True)
+)
 
 # train
 classifier.fit(x_train, y_train)
+print(classifier.n_iter_)
 
 # get testing data to evaluate disentanglement metric
-batches = 1  # 1000 per factor, 5000 total
+batches = 1000  # 1000 per factor, 5000 total
 test_data = get_zdiffs(batches, batch_size)
 
 x_test = np.array(test_data["z_diffs"])
