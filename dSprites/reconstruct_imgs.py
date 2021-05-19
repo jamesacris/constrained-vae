@@ -31,16 +31,8 @@ encoder.summary()
 decoder = tf.keras.models.load_model("./models/BVAE_decoder_cnn_20epochs_4.0beta")
 decoder.summary()
 
-
-# Visualise some images at random
-
-# seed
 nrows = 4
 ncols = 8
-# seed = tf.random.normal([nrows * ncols, latent_dim], mean=0, stddev=1)
-
-# decoded images
-# decoded_images = decoder.predict(seed)
 
 # reconstruct some images from the dataset
 np_ds = tfds.as_numpy(dataset)
@@ -49,21 +41,9 @@ for step, ex in enumerate(dataset):
     if step >= (nrows * ncols):
         break
 
-print(img.shape)
-print(type(img))
-
-# show imgs
-# plt.figure(dpi=100, figsize=(ncols * 2, nrows * 2.2))
-# for iplot in range(nrows * ncols):
-#     subplot_image(np_im[iplot, :, :], "", nrows, ncols, iplot)
-# plt.savefig("./figs/samples.png")
-# plt.show()
-
 # encode & decode
 encoded_imgs = encoder.predict(img[0 : nrows * ncols, :, :])
-decoded_imgs = decoder.predict(
-    encoded_imgs[2]
-)  # index last of (z_mean, z_var, z_output)
+decoded_imgs = decoder.predict(encoded_imgs[2])
 
 # plot images
 plt.figure(dpi=100, figsize=(ncols * 2, nrows * 2.2))
