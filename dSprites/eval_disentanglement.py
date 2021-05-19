@@ -48,13 +48,13 @@ dataset_zip = np.load(
     encoding="latin1",
 )
 
-print("Keys in the dataset:", dataset_zip.keys())
+# print("Keys in the dataset:", dataset_zip.keys())
 imgs = dataset_zip["imgs"]
 latents_values = dataset_zip["latents_values"]
 latents_classes = dataset_zip["latents_classes"]
 metadata = dataset_zip["metadata"][()]
 
-print("Metadata: \n", metadata)
+# print("Metadata: \n", metadata)
 
 # Define number of values per latents and functions to convert to indices
 latents_sizes = metadata["latents_sizes"]
@@ -93,24 +93,20 @@ def get_zdiffs(batches, batch_size):
 
         latents_sampled_1 = sample_latent(size=batch_size * batches)
         latents_sampled_2 = sample_latent(size=batch_size * batches)
-        print(latents_sampled_1.shape)
 
         latents_sampled_1[:, latent_index] = latents_sampled_2[:, latent_index]
 
         indices_sampled_1 = latent_to_index(latents_sampled_1)
         indices_sampled_2 = latent_to_index(latents_sampled_2)
-        print(indices_sampled_1.shape)
 
         imgs_sampled_1 = imgs[indices_sampled_1]
         imgs_sampled_2 = imgs[indices_sampled_2]
-        print(imgs_sampled_1.shape)
 
         # img_pair_1 = tf.convert_to_tensor(imgs_sampled_1)
         # img_pair_2 = tf.convert_to_tensor(imgs_sampled_2)
 
         z_1 = encoder.predict(imgs_sampled_1)[0]
         z_2 = encoder.predict(imgs_sampled_2)[0]
-        print(z_1.shape)
 
         z_diff = np.abs(z_1 - z_2)
         print(z_diff.shape)
@@ -123,13 +119,11 @@ def get_zdiffs(batches, batch_size):
 
     shuffle_index = np.arange(0, n_latent_real * batches)
     np.random.shuffle(shuffle_index)
-    print(shuffle_index)
 
     z_diffs = z_diffs.reshape((n_latent_real * batches, latent_dim))[shuffle_index]
 
     latent_indices = latent_indices.reshape((n_latent_real * batches))[shuffle_index]
     # latent_indices = np.eye(n_latent_real)[latent_indices]
-    print(latent_indices)
 
     return {
         "z_diffs": z_diffs,
@@ -138,10 +132,11 @@ def get_zdiffs(batches, batch_size):
 
 
 batch_size = 64
+training_batches = 500
+testing_batches = 100
 
 # prep training data
-training_data = get_zdiffs(500, batch_size)
-print("got training data for classifier")
+training_data = get_zdiffs(training_batches, batch_size)
 
 x_train = np.array(training_data["z_diffs"])
 y_train = np.array(training_data["latent_indices"])
@@ -155,12 +150,11 @@ classifier = make_pipeline(
 classifier.fit(x_train, y_train)
 
 # get testing data to evaluate disentanglement metric
-batches = 100  # 1000 per factor, 5000 total
-test_data = get_zdiffs(batches, batch_size)
+test_data = get_zdiffs(testing_batches, batch_size)
 
 x_test = np.array(test_data["z_diffs"])
 y_test = np.array(test_data["latent_indices"])
 
 # evaluate disentanglement metric
 disentanglement_score = classifier.score(x_test, y_test)
-print(disentanglement_score)
+print(f"disentanglement score: {disentanglement_score}")
