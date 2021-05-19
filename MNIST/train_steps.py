@@ -8,17 +8,17 @@ from helpers import log, report
 
 # Lagrangian loss function
 @tf.function
-def lagrangian(reconstr_loss, kld, constraint_target, Lambda, constrained_variable: str='kld'):
+def lagrangian(vae_model, Lambda, reconstr_loss, kld):
     # constrain kld
-    if constrained_variable=='kld':
+    if vae_model.constr_variable == "kld":
         # constraint h
-        h = tf.nn.relu(kld - constraint_target)
+        h = tf.nn.relu(kld - vae_model.epsilon)
         # Lagrangian
         l = reconstr_loss + Lambda * h
     # constrain reconstruction error
-    elif constrained_variable=='reconstr_err':
+    elif vae_model.constr_variable == "reconstr_err":
         # constraint h
-        h = tf.nn.relu(reconstr_loss - constraint_target)
+        h = tf.nn.relu(reconstr_loss - vae_model.epsilon)
         # Lagrangian
         l = kld + Lambda * h
     else:
@@ -28,7 +28,7 @@ def lagrangian(reconstr_loss, kld, constraint_target, Lambda, constrained_variab
 
 # Warmup training step (this is just train_w_step with lambda = 0)
 @tf.function
-def warmup_step(x, vae_model, constrained_variable: str='kld'):
+def warmup_step(x, vae_model):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -37,19 +37,21 @@ def warmup_step(x, vae_model, constrained_variable: str='kld'):
         # decoding
         x_prime = vae_model.decoder(z)
         # reconstruction error by binary crossentropy loss
-        reconstruction_loss = (
-            tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime)) * 28 * 28
+        reconstruction_loss = tf.reduce_mean(
+            keras.losses.binary_crossentropy(x, x_prime) * 28 * 28
         )
         # KL divergence
         kld = -0.5 * tf.reduce_mean(
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
-        if constrained_variable=='kld':
+        if vae_model.constr_variable == "kld":
             loss = reconstruction_loss  # optimise for reconstruction err only
-        elif constrained_variable=='reconstr_err':
+        elif vae_model.constr_variable == "reconstr_err":
             loss = kld  # optimise for kld only
         else:
-            raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
+            raise ValueError(
+                f"constrained_variable must be one of ['kld', 'reconstr_err']"
+            )
     # apply gradient
     grads = tape.gradient(loss, vae_model.trainable_weights)
     vae_model.optimizer.apply_gradients(zip(grads, vae_model.trainable_weights))
@@ -66,7 +68,7 @@ def warmup_step(x, vae_model, constrained_variable: str='kld'):
 
 # Reconstruction training step (updates model params)
 @tf.function
-def train_w_step(x, vae_model, Lambda, constraint_aim, constrained_variable: str='kld'):
+def train_w_step(x, vae_model, Lambda):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -75,15 +77,15 @@ def train_w_step(x, vae_model, Lambda, constraint_aim, constrained_variable: str
         # decoding
         x_prime = vae_model.decoder(z)
         # reconstruction error by binary crossentropy loss
-        reconstruction_loss = (
-            tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime)) * 28 * 28
+        reconstruction_loss = tf.reduce_mean(
+            keras.losses.binary_crossentropy(x, x_prime) * 28 * 28
         )
         # KL divergence
         kld = -0.5 * tf.reduce_mean(
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
         # loss = lagrangian
-        loss = lagrangian(reconstruction_loss, kld, constraint_aim, Lambda, constrained_variable)
+        loss = lagrangian(vae_model, Lambda, reconstruction_loss, kld)
     # apply gradient
     grads = tape.gradient(loss, vae_model.trainable_weights)
     vae_model.optimizer.apply_gradients(zip(grads, vae_model.trainable_weights))
@@ -100,7 +102,7 @@ def train_w_step(x, vae_model, Lambda, constraint_aim, constrained_variable: str
 
 # Constraint training step (updates lambda). Pass optimizer.
 @tf.function
-def train_lambda_step(x, vae_model, opt, Lambda, constraint_aim, constrained_variable: str='kld'):
+def train_lambda_step(x, vae_model, opt, Lambda):
     if isinstance(x, tuple):
         x = x[0]
     with tf.GradientTape() as tape:
@@ -109,15 +111,15 @@ def train_lambda_step(x, vae_model, opt, Lambda, constraint_aim, constrained_var
         # decoding
         x_prime = vae_model.decoder(z)
         # reconstruction error by binary crossentropy loss
-        reconstruction_loss = (
-            tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime)) * 28 * 28
+        reconstruction_loss = tf.reduce_mean(
+            keras.losses.binary_crossentropy(x, x_prime) * 28 * 28
         )
         # KL divergence
         kld = -0.5 * tf.reduce_mean(
             1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var)
         )
         # loss = - lagrangian (SGA)
-        loss = -lagrangian(reconstruction_loss, kld, constraint_aim, Lambda, constrained_variable)
+        loss = -lagrangian(vae_model, Lambda, reconstruction_loss, kld)
     # calculate and apply gradient
     grad = tape.gradient(target=loss, sources=[Lambda])
     # opt = tf.keras.optimizers.Adam()
@@ -134,11 +136,23 @@ def train_lambda_step(x, vae_model, opt, Lambda, constraint_aim, constrained_var
 
 
 # Training loop
-def train_model(vae_model, dataset, batch_size, warmup_iters, l, d, nd, epochs, Lambda, opt_lambda, training_logs, constraint_aim, constrained_variable: str='kld'):
+def train_model(
+    vae_model,
+    dataset,
+    batch_size,
+    warmup_iters,
+    l,
+    d,
+    nd,
+    epochs,
+    Lambda,
+    opt_lambda,
+    training_logs,
+):
     # warmup
     t_warm_0 = time.time()
     for step, train_image_batch in enumerate(dataset):
-        logits = warmup_step(train_image_batch, vae_model, constrained_variable)
+        logits = warmup_step(train_image_batch, vae_model)
         # log
         log(logits, training_logs)
 
@@ -163,7 +177,12 @@ def train_model(vae_model, dataset, batch_size, warmup_iters, l, d, nd, epochs, 
         enum_data = enumerate(dataset)
         for step, train_image_batch in enum_data:
             # perform one SGA step for lambda
-            logits = train_lambda_step(train_image_batch, vae_model, opt_lambda, Lambda, constraint_aim, constrained_variable)
+            logits = train_lambda_step(
+                train_image_batch,
+                vae_model,
+                opt_lambda,
+                Lambda,
+            )
             steps_lambda += 1
             # log
             log(logits, training_logs)
@@ -174,7 +193,11 @@ def train_model(vae_model, dataset, batch_size, warmup_iters, l, d, nd, epochs, 
                     step, train_image_batch = next(enum_data)
                 except StopIteration:
                     break
-                logits = train_w_step(train_image_batch, vae_model, Lambda, constraint_aim, constrained_variable)
+                logits = train_w_step(
+                    train_image_batch,
+                    vae_model,
+                    Lambda,
+                )
                 steps_w += 1
                 # log
                 log(logits, training_logs)

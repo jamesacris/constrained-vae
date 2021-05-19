@@ -42,8 +42,9 @@ decoder_VAE.summary()
 class constr_VAE(keras.Model):
     # constructor
     # remove beta, add in KLD_aim,
-    def __init__(self, encoder, decoder, KLD_aim, **kwargs):
+    def __init__(self, encoder, decoder, epsilon, constr_variable, **kwargs):
         super(constr_VAE, self).__init__(**kwargs)
         self.encoder = encoder
         self.decoder = decoder
-        self.KLD_aim = KLD_aim
+        self.epsilon = epsilon
+        self.constr_variable = constr_variable

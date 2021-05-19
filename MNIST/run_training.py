@@ -25,7 +25,12 @@ from tensorflow import keras
 import numpy as np
 import matplotlib.pyplot as plt
 
-from helpers import plot_losses, plot_reconstruction_losses, plot_kld_lossses, plot_lambdas
+from helpers import (
+    plot_losses,
+    plot_reconstruction_losses,
+    plot_kld_lossses,
+    plot_lambdas,
+)
 
 plt.style.use("ggplot")
 
@@ -49,7 +54,9 @@ from train_steps import train_model
 ###################
 # Hyperparameters
 
-KLD_aim = 1.0
+# constraint aim (epsilon) & variable (kld or reconstr_err)
+epsilon = 1.0
+constrained_variable = "kld"
 
 l = 1
 d = 1
@@ -69,15 +76,20 @@ epochs = 5
 
 # record training history in these lists
 training_logs = {
-"losses" : [],
-"reconstruction_losses" : [],
-"kld_losses" : [],
-"Lambdas" : [],
-"epoch_times" : []
+    "losses": [],
+    "reconstruction_losses": [],
+    "kld_losses": [],
+    "Lambdas": [],
+    "epoch_times": [],
 }
 
 # build the constrained VAE
-vae_model = constr_VAE(encoder=encoder_VAE, decoder=decoder_VAE, KLD_aim=KLD_aim)
+vae_model = constr_VAE(
+    encoder=encoder_VAE,
+    decoder=decoder_VAE,
+    epsilon=epsilon,
+    constr_variable=constrained_variable,
+)
 
 # compile the VAE with the optimizer for model parameters
 vae_model.compile(optimizer=keras.optimizers.SGD(learning_rate=0.001))
@@ -96,8 +108,14 @@ train_model(
     Lambda,
     opt_lambda,
     training_logs,
-    constraint_aim=KLD_aim,
-    constrained_variable='kld')
+)
+
+encoder_VAE.save(
+    f"./models/eVAE_encoder_{epsilon}{constrained_variable}_{epochs}ep_{d}d_{nd}nd"
+)
+decoder_VAE.save(
+    f"./models/eVAE_decoder_{epsilon}{constrained_variable}_{epochs}ep_{d}d_{nd}nd"
+)
 
 
 # plot losses
