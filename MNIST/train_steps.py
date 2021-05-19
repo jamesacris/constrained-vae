@@ -66,7 +66,7 @@ def warmup_step(x, vae_model):
     return logits
 
 
-# Reconstruction training step (updates model params)
+# weights training step (updates model params)
 @tf.function
 def train_w_step(x, vae_model, Lambda):
     if isinstance(x, tuple):
