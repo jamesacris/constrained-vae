@@ -10,7 +10,7 @@ if gpus:
     try:
         tf.config.experimental.set_virtual_device_configuration(
             gpus[0],
-            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=4096)],
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=32510)],
         )
         logical_gpus = tf.config.experimental.list_logical_devices("GPU")
         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
@@ -51,7 +51,7 @@ from helpers import plot_losses, plot_reconstruction_losses, plot_kld_lossses
 # Hyperparameters
 
 beta = 4.0
-epochs = 20
+epochs = 50
 
 hyperparams = f"{epochs}epochs_{beta}beta"
 
