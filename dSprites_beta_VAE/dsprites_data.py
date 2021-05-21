@@ -8,7 +8,7 @@ from sklearn.pipeline import make_pipeline
 def get_dsprites_tf_dataset():
     # data have been shuffled by tensorflow
     # data will be batched before training
-    return tfds.load('Dsprites', split='train', batch_size=128)
+    return tfds.load('Dsprites', split='train', batch_size=256)
 
 class OrderedDsprites:
     def __init__(self, data_file='dsprites_ordered.npz'):
