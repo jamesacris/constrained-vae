@@ -5,3 +5,6 @@ src/logs/*
 .vscode/
 tmp/
 tmp/*
+__pycache__
+output_train
+.DS_Store
