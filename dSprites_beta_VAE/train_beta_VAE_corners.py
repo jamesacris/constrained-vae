@@ -16,5 +16,5 @@ for latent_dim, norm_beta in product(latent_dims, norm_betas):
     # save_dir: where to save all results (use None for automatic dir)
     # batch_limit_for_debug: how many batches to use per epoch (for quick debug)
     #                        set batch_limit_for_debug=None to use all batches
-    bvae.train_save(dset, epochs=2, batch_size=256, lr=.01, save_dir=None,
-                    verbose_batch=50, verbose_epoch=1, batch_limit_for_debug=5)
+    bvae.train_save(dset, epochs=50, batch_size=256, lr=.01, save_dir=None,
+                    verbose_batch=5, verbose_epoch=1, batch_limit_for_debug=5)
