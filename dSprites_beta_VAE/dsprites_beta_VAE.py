@@ -146,7 +146,7 @@ class DspritesBetaVAE():
                     
         # save results
         if save_dir is None:
-            save_dir = f'output_train/orig_architecture'
+            save_dir = f'output_train/'
             save_dir += f'nlat={self.latent_dim}__'
             save_dir += f'beta={self.normalized_beta}__'
             save_dir += f'seed={self.random_seed}'
