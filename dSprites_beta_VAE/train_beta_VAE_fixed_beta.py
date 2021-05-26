@@ -27,10 +27,10 @@ if name == '__main__':
     parser.add_argument("--epochs", default=1, type=int, help="number of training epochs")
     parser.add_argument("-b", "--batch-size", default=256, type=int, help="size of mini-batch")
     parser.add_argument("-l", "--learning-rate", default=.01, type=float, help="learning rate")
-    parser.add_argument("--savedir", default=None, help="where to save all results (use None for automatic dir)")
+    parser.add_argument("--savedir", default=None, type=str, help="where to save all results (use None for automatic dir)")
     parser.add_argument("--verbose-batch", default=1, type=int, help="frequency with which to log batch metrics")
     parser.add_argument("--verbose-epoch", default=1, type=int, help="frequency with which to log epoch metrics")
-    parser.add_argument("--batch-lim-debug", default=None, help="how many batches to use per epoch (for quick debug)")
+    parser.add_argument("--batch-lim-debug", default=None, type=int, help="how many batches to use per epoch (for quick debug)")
     args = parser.parse_args()
 
     # dataset
