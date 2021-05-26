@@ -27,14 +27,15 @@ dset = get_dsprites_tf_dataset()
 latent_dim = 200
 norm_beta = 0.002
 
+# create bvae
+bvae = DspritesBetaVAE(latent_dim=latent_dim, normalized_beta=norm_beta, random_seed=0)
+
+# don't let tf auto assign jobs to devices and log
 tf.debugging.set_log_device_placement(True)
 tf.config.set_soft_device_placement(False)
 
 
 with tf.device('/device:GPU:0'):
-  # create bvae
-  bvae = DspritesBetaVAE(latent_dim=latent_dim, normalized_beta=norm_beta, random_seed=0)
-
   # train and save
   # save_dir: where to save all results (use None for automatic dir)
   # batch_limit_for_debug: how many batches to use per epoch (for quick debug)
