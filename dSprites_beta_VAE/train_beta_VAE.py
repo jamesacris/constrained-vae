@@ -5,7 +5,7 @@ from dsprites_data import get_dsprites_tf_dataset
 # set gpu memory limit, gradually reduce to test demands
 import tensorflow as tf
 
-memory = 1024*5
+memory = 4096 + 512
 
 physical_gpus = tf.config.list_physical_devices('GPU')
 print(physical_gpus)
