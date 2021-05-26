@@ -8,7 +8,7 @@ import tensorflow as tf
 gpus = tf.config.list_physical_devices('GPU')
 print(gpus)
 if gpus:
-  # Restrict TensorFlow to only allocate 1GB of memory on the first GPU
+  # Restrict TensorFlow to only allocate some of memory on the first GPU
   try:
     tf.config.experimental.set_virtual_device_configuration(
         gpus[0],
