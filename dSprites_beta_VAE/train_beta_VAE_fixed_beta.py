@@ -5,20 +5,21 @@ from dsprites_data import get_dsprites_tf_dataset
 
 import multiprocessing 
 
-def train_func(vGPU, nlat, beta, seed, epochs, batch_size, savedir, ...):
-    tf.set_GPU(vGPU)
+def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
+               savedir, verbose_batch, verbose_epoch, batch_lim_debug):
     
-    # create bvae
-    bvae = DspritesBetaVAE(latent_dim=args.nlat, normalized_beta=args.norm_beta, random_seed=args.seed)
+    with tf.device(vGPU):
+        # create bvae
+        bvae = DspritesBetaVAE(latent_dim=nlat, normalized_beta=norm_beta, random_seed=seed)
 
 
-    # train and save
-    # save_dir: where to save all results (use None for automatic dir)
-    # batch_limit_for_debug: how many batches to use per epoch (for quick debug)
-    #                        set batch_limit_for_debug=None to use all batches
-    bvae.train_save(dset, epochs=args.epochs, batch_size=args.batch_size, lr=args.learning_rate, 
-                    save_dir=args.savedir, verbose_batch=args.verbose_batch, 
-                    verbose_epoch=args.verbose_epoch, batch_limit_for_debug=args.batch_lim_debug)
+        # train and save
+        # save_dir: where to save all results (use None for automatic dir)
+        # batch_limit_for_debug: how many batches to use per epoch (for quick debug)
+        #                        set batch_limit_for_debug=None to use all batches
+        bvae.train_save(dset, epochs=epochs, batch_size=batch_size, lr=learning_rate, 
+                        save_dir=savedir, verbose_batch=verbose_batch, 
+                        verbose_epoch=verbose_epoch, batch_limit_for_debug=batch_lim_debug)
 
 
 if "name" == "__main__":
@@ -55,10 +56,12 @@ if "name" == "__main__":
 
     # each GPU ==> 5 virtual vGPUs
     print(vGPUs)
+    assert False
 
     args_pool = []
     for i, n_lat in enumerate(range(10, 201, 10)):
-        args = (f'vGPU-{i}', nlat, args.norm_beta, seed=, epochs=, batch_size=, savedir=None, ...)
+        args = (vGPUs[i].name, n_lat, args.norm_beta, args.seed, args.epochs, args.batch_size, 
+                args.learning_rate, args.savedir, args.verbose_batch, args.verbose_epoch, args.batch_lim_debug)
     
     with multiprocessing.Pool(processes=20) as pool:
         pool.starmap(train_func, args)
