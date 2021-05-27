@@ -1,3 +1,4 @@
+import tensorflow as tf
 from argparse import ArgumentParser
 from dsprites_beta_VAE import DspritesBetaVAE
 from dsprites_data import get_dsprites_tf_dataset
@@ -20,7 +21,7 @@ def train_func(vGPU, nlat, beta, seed, epochs, batch_size, savedir, ...):
                     verbose_epoch=args.verbose_epoch, batch_limit_for_debug=args.batch_lim_debug)
 
 
-if name == '__main__':
+if "name" == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--norm_beta", default=0.002, type=float, help="normalised beta")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
@@ -40,16 +41,23 @@ if name == '__main__':
     # 5 GB x 20 = 100 GB
     # 4 * 32 = 128 GB
 
-    pGPUs = list_physical()
+    pGPUs = tf.config.list_physical_devices('GPU')
     vGPUs = []
     for pGPU in pGPUs:
-        vGPUS.append(create_vGPUS(5))
+        tf.config.experimental.set_virtual_device_configuration(
+            pGPU,
+            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
+             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
+             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
+             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
+             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
+        vGPUs.extend(tf.config.experimental.list_logical_devices('GPU'))
 
-    # each GPU ==> 5 virtua vGPUs
-    vGPUs = ['vGPU-0', 'vGPU-1', 'vGPU-2', ...]
+    # each GPU ==> 5 virtual vGPUs
+    print(vGPUs)
 
     args_pool = []
-    for i, n_lat in enumearate(range(10, 201, 10)):
+    for i, n_lat in enumerate(range(10, 201, 10)):
         args = (f'vGPU-{i}', nlat, args.norm_beta, seed=, epochs=, batch_size=, savedir=None, ...)
     
     with multiprocessing.Pool(processes=20) as pool:
