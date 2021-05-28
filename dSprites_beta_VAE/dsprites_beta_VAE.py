@@ -16,10 +16,11 @@ class Sampling(layers.Layer):
 
 # encoder
 def create_encoder(latent_dim):
+    from tensorflow import keras
     print("encoder")
     image_input = keras.Input(shape=(64, 64, 1))
-    print("encoder: created keras layers")
     x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
+    print("first conv2d layer created")
     x = layers.MaxPool2D(pool_size=(2, 2))(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
@@ -29,6 +30,7 @@ def create_encoder(latent_dim):
     z_mean = layers.Dense(latent_dim, name="z_mean")(x)
     z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
     z_output = Sampling()((z_mean, z_log_var))
+    print("encoder: created keras layers")
     encoder = keras.Model(image_input, (z_mean, z_log_var, z_output))
     print("encoder: created keras model")
     return encoder
