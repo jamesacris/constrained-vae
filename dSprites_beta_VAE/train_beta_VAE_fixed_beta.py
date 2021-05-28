@@ -16,13 +16,14 @@ def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
         print(f"assigned device {vGPU}")
         # dataset
         dset = get_dsprites_tf_dataset()
+        size = dset.__len__()
 
-        print(f"got dataset, proceeding to create model with latent dim = {nlat}")
+        print(f"{nlat}, dataset size {size}")
 
         # create bvae
         bvae = DspritesBetaVAE(latent_dim=nlat, normalized_beta=norm_beta, random_seed=seed)
 
-        print(f"created model, proceeding to train model with latent dim = {nlat}")
+        print(f"created model, proceeding to train model with nlat = {bvae.latent_dim}")
 
         # train and save
         # save_dir: where to save all results (use None for automatic dir)
@@ -31,6 +32,8 @@ def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
         bvae.train_save(dset, epochs=epochs, batch_size=batch_size, lr=learning_rate, 
                         save_dir=savedir, verbose_batch=verbose_batch, 
                         verbose_epoch=verbose_epoch, batch_limit_for_debug=batch_lim_debug)
+        
+        print(f"trained model nlat = {bvae.latent_dim}")
 
 
 if __name__ == "__main__":
