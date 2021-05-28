@@ -85,6 +85,7 @@ class DspritesBetaVAE():
                    verbose_batch=100, verbose_epoch=1, batch_limit_for_debug=None):
         # batch dataset
         dataset = dataset.unbatch().batch(batch_size)
+        print("train_save: batched dataset")
         
         # initialize NN with given seed
         python_random.seed(self.random_seed)
@@ -92,10 +93,12 @@ class DspritesBetaVAE():
         tf.random.set_seed(self.random_seed)
         self.encoder = create_encoder(self.latent_dim)
         self.decoder = create_decoder(self.latent_dim)
+        print("train_save: initialised NN")
         
         # compile
         self.encoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
         self.decoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
+        print("train_save: compiled model")
         
         # training history
         hist_loss = []
@@ -105,6 +108,7 @@ class DspritesBetaVAE():
         
         # train_step
         train_step_func = create_train_step_func_instance()
+        print("train_save: created train_step_func")
         
         # training loop
         t0 = time.time()
