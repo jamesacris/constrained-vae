@@ -16,7 +16,9 @@ class Sampling(layers.Layer):
 
 # encoder
 def create_encoder(latent_dim):
+    print("encoder")
     image_input = keras.Input(shape=(64, 64, 1))
+    print("encoder: created keras input layer")
     x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
     x = layers.MaxPool2D(pool_size=(2, 2))(x)
     x = layers.BatchNormalization()(x)
@@ -91,9 +93,10 @@ class DspritesBetaVAE():
         python_random.seed(self.random_seed)
         np.random.seed(self.random_seed)
         tf.random.set_seed(self.random_seed)
+        print("train_save: set seed")
         self.encoder = create_encoder(self.latent_dim)
         self.decoder = create_decoder(self.latent_dim)
-        print("train_save: initialised NN")
+        print("train_save: created encoder, decoder")
         
         # compile
         self.encoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
