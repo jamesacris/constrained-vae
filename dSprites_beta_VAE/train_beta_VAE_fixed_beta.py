@@ -8,14 +8,21 @@ import multiprocessing
 def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
                savedir, verbose_batch, verbose_epoch, batch_lim_debug):
     
-    print(f"training model with latent dim = {nlat}")
+    import tensorflow as tf
+    from dsprites_beta_VAE import DspritesBetaVAE
+    from dsprites_data import get_dsprites_tf_dataset
 
     with tf.device(vGPU):
         print(f"assigned device {vGPU}")
+        # dataset
+        dset = get_dsprites_tf_dataset()
+
+        print(f"got dataset, proceeding to create model with latent dim = {nlat}")
 
         # create bvae
         bvae = DspritesBetaVAE(latent_dim=nlat, normalized_beta=norm_beta, random_seed=seed)
 
+        print(f"created model, proceeding to train model with latent dim = {nlat}")
 
         # train and save
         # save_dir: where to save all results (use None for automatic dir)
@@ -57,9 +64,6 @@ if __name__ == "__main__":
 
     # each GPU ==> 5 virtual vGPUs
     print(vGPUs)
-
-    # dataset
-    dset = get_dsprites_tf_dataset()
 
     args_pool = []
     for i, n_lat in enumerate(range(10, 21, 10)):
