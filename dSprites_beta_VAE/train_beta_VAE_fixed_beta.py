@@ -8,7 +8,9 @@ import multiprocessing
 def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
                savedir, verbose_batch, verbose_epoch, batch_lim_debug):
     
-    print(f"training model with latent dim = {nlat}")
+    # dataset
+    dset = get_dsprites_tf_dataset()
+    print(f"got dataset, proceedng to train model with latent dim = {nlat}")
 
     with tf.device(vGPU):
         print(f"assigned device {vGPU}")
@@ -57,9 +59,6 @@ if __name__ == "__main__":
 
     # each GPU ==> 5 virtual vGPUs
     print(vGPUs)
-
-    # dataset
-    dset = get_dsprites_tf_dataset()
 
     args_pool = []
     for i, n_lat in enumerate(range(10, 21, 10)):
