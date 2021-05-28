@@ -86,6 +86,7 @@ class DspritesBetaVAE():
         
     def train_save(self, dataset, epochs=10, batch_size=256, lr=.01, save_dir=None,
                    verbose_batch=100, verbose_epoch=1, batch_limit_for_debug=None):
+        from tensorflow import keras
         # batch dataset
         dataset = dataset.unbatch().batch(batch_size)
         print("train_save: batched dataset")
