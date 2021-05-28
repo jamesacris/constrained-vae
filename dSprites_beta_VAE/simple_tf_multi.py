@@ -5,7 +5,9 @@ def simple_tf_matmul(vGPU, a_1):
     with tf.device(vGPU):
         a = tf.constant([[a_1,2],[2,4],[1,2]])
         b = tf.constant([[1,2,3],[2,4,6]])
-        return tf.matmul(a, b)
+        c = tf.matmul(a, b)
+        print(c.numpy)
+        return c
 
 if __name__ == "__main__":
 
