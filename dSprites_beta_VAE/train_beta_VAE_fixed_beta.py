@@ -8,7 +8,6 @@ import multiprocessing
 def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
                savedir, verbose_batch, verbose_epoch, batch_lim_debug):
     
-    import tensorflow as tf
     print(f"training model with latent dim = {nlat}")
 
     with tf.device(vGPU):
