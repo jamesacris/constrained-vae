@@ -37,6 +37,7 @@ def train_func(vGPU, nlat, norm_beta, seed, epochs, batch_size, learning_rate,
 
 
 if __name__ == "__main__":
+    multiprocessing.set_start_method('spawn')
     parser = ArgumentParser()
     parser.add_argument("--norm_beta", default=0.002, type=float, help="normalised beta")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
