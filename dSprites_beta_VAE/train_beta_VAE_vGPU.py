@@ -24,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--verbose-epoch", default=0, type=int, help="frequency with which to print epoch info")
     parser.add_argument("--gpu-mem-per-job", default=5120, type=int, help="gpu memory per job")
     parser.add_argument("--threads-per-job", default=1, type=int, help="max threads per job")
+    parser.add_argument("--use-cpu", default=False, action='store_true', help="use cpu")
     args = parser.parse_args()
     
     ########### env ###########
@@ -34,22 +35,21 @@ if __name__ == "__main__":
     tf.config.threading.set_inter_op_parallelism_threads(args.threads_per_job)
     tf.config.threading.set_intra_op_parallelism_threads(args.threads_per_job)
     # gpu
-    pGPUs = tf.config.list_physical_devices('GPU')
-    if len(pGPUs) == 0:
-        # no gpu, use cpu
-        vGPU = 'CPU'
+    if args.use_cpu:
+        device = f'/cpu:{rank}'
     else:
+        pGPUs = tf.config.list_physical_devices('GPU')
         # split jobs equally on all available GPUs
         pGPU = pGPUs[rank % len(pGPUs)]
         # Allocate gpu memory one after another so that 
         # allocated memory is protected by CUDA
         for irank in range(njobs):
             if irank == rank:
-                # if one rank fail, program will stop
+                # If one rank fail, program may or many not stop!
                 tf.config.experimental.set_virtual_device_configuration(
                     pGPU, [tf.config.experimental.VirtualDeviceConfiguration(
                         memory_limit=args.gpu_mem_per_job)])
-                vGPU = tf.config.experimental.list_logical_devices('GPU')[0]
+                device = tf.config.experimental.list_logical_devices('GPU')[0]
             comm.Barrier()
     ########### env ###########
     
