@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 from dsprites_beta_VAE import DspritesBetaVAE
 from dsprites_data import get_dsprites_tf_dataset
 
-if __name__ == "__main__"
+if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("-z", "--nlat", default=10, type=int, help="dimension of latent space")
     parser.add_argument("--norm_beta", default=0.002, type=float, help="normalised beta")
