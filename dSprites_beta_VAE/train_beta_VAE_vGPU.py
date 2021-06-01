@@ -36,7 +36,8 @@ if __name__ == "__main__":
     tf.config.threading.set_intra_op_parallelism_threads(args.threads_per_job)
     # gpu
     if args.use_cpu:
-        device = f'/cpu:{rank}'
+        vCPUs = tf.config.experimental.list_logical_devices('CPU')
+        device = vCPUs[0]
     else:
         pGPUs = tf.config.list_physical_devices('GPU')
         # split jobs equally on all available GPUs

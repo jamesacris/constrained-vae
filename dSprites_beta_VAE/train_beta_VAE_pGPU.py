@@ -35,11 +35,15 @@ if __name__ == "__main__":
     tf.config.threading.set_intra_op_parallelism_threads(args.threads_per_job)
     # gpu
     if args.use_cpu:
-        device = f'/cpu:{rank}'
+        vCPUs = tf.config.experimental.list_logical_devices('CPU')
+        device = vCPUs[0]
     else:
         pGPUs = tf.config.list_physical_devices('GPU')
         assert len(pGPUs) >= njobs
-        device = pGPUs[rank]
+        for pGPU in pGPUs:
+            tf.config.experimental.set_memory_growth(pGPU, True)
+        vGPUs = tf.config.experimental.list_logical_devices('GPU')
+        device = vGPUs[rank]
     ########### env ###########
     
     # dataset
