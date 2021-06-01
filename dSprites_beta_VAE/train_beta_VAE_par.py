@@ -30,6 +30,9 @@ if __name__ == "__main__":
     # check mpi size
     njobs = len(args.norm_beta_list) * len(args.nlat_list)
     assert njobs == comm.Get_size()
+    # cpu
+    tf.config.threading.set_inter_op_parallelism_threads(args.threads_per_job)
+    tf.config.threading.set_intra_op_parallelism_threads(args.threads_per_job)
     # gpu
     pGPUs = tf.config.list_physical_devices('GPU')
     if len(pGPUs) == 0:
@@ -48,9 +51,8 @@ if __name__ == "__main__":
                         memory_limit=args.gpu_mem_per_job)])
                 vGPU = tf.config.experimental.list_logical_devices('GPU')[0]
             comm.Barrier()
-    tf.config.threading.set_inter_op_parallelism_threads(args.threads_per_job)
-    tf.config.threading.set_intra_op_parallelism_threads(args.threads_per_job)
-
+    ########### env ###########
+    
     # dataset
     dset = get_dsprites_tf_dataset()
 
