@@ -15,34 +15,29 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 # encoder
-def create_encoder(latent_dim):
-    from tensorflow import keras
-    print("encoder")
+def create_encoder(latent_dim, n_filters_first_conv2d):
     image_input = keras.Input(shape=(64, 64, 1))
-    x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
-    print("first conv2d layer created")
+    x = layers.Conv2D(n_filters_first_conv2d, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
     x = layers.MaxPool2D(pool_size=(2, 2))(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Conv2D(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
+    x = layers.Conv2D(n_filters_first_conv2d * 2, kernel_size=(3, 3), activation="relu", padding="same")(x)
     x = layers.MaxPool2D(pool_size=(2, 2))(x)
     x = layers.BatchNormalization()(x)
     x = layers.Flatten()(x)
     z_mean = layers.Dense(latent_dim, name="z_mean")(x)
     z_log_var = layers.Dense(latent_dim, name="z_log_var")(x)
     z_output = Sampling()((z_mean, z_log_var))
-    print("encoder: created keras layers")
     encoder = keras.Model(image_input, (z_mean, z_log_var, z_output))
-    print("encoder: created keras model")
     return encoder
 
 # decoder
-def create_decoder(latent_dim):
+def create_decoder(latent_dim, n_filters_first_conv2d):
     z_input = keras.Input(shape=(latent_dim,))
     x = layers.Dense(4096, activation="tanh")(z_input)
     x = layers.Reshape((64, 64, 1))(x)
-    x = layers.Conv2DTranspose(64, kernel_size=(3, 3), activation="relu", padding="same")(x)
+    x = layers.Conv2DTranspose(n_filters_first_conv2d * 2, kernel_size=(3, 3), activation="relu", padding="same")(x)
     x = layers.BatchNormalization()(x)
-    x = layers.Conv2DTranspose(32, kernel_size=(5, 5), activation="relu", padding="same")(x)
+    x = layers.Conv2DTranspose(n_filters_first_conv2d, kernel_size=(5, 5), activation="relu", padding="same")(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2DTranspose(1, kernel_size=(5, 5), activation="sigmoid", padding="same")(x)
     image_output = layers.Reshape((64, 64))(x)
@@ -79,33 +74,30 @@ def create_train_step_func_instance():
     
 # beta VAE for dsprites
 class DspritesBetaVAE():
-    def __init__(self, latent_dim, normalized_beta, random_seed=0):
-        self.latent_dim = latent_dim
+    def __init__(self, normalized_beta, latent_dim,
+        n_filters_first_conv2d, random_seed=0):
         self.normalized_beta = normalized_beta
+        self.latent_dim = latent_dim
+        self.n_filters_first_conv2d = n_filters_first_conv2d
         self.random_seed = random_seed
         self.encoder = None
         self.decoder = None
         
     def train_save(self, dataset, epochs=10, batch_size=256, lr=.01, save_dir=None,
                    verbose_batch=100, verbose_epoch=1, batch_limit_for_debug=None):
-        from tensorflow import keras
         # batch dataset
         dataset = dataset.unbatch().batch(batch_size)
-        print("train_save: batched dataset")
         
         # initialize NN with given seed
         python_random.seed(self.random_seed)
         np.random.seed(self.random_seed)
         tf.random.set_seed(self.random_seed)
-        print("train_save: set seed")
-        self.encoder = create_encoder(self.latent_dim)
-        self.decoder = create_decoder(self.latent_dim)
-        print("train_save: created encoder, decoder")
+        self.encoder = create_encoder(self.latent_dim, self.n_filters_first_conv2d)
+        self.decoder = create_decoder(self.latent_dim, self.n_filters_first_conv2d)
         
         # compile
         self.encoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
         self.decoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
-        print("train_save: compiled model")
         
         # training history
         hist_loss = []
@@ -115,7 +107,6 @@ class DspritesBetaVAE():
         
         # train_step
         train_step_func = create_train_step_func_instance()
-        print("train_save: created train_step_func")
         
         # training loop
         t0 = time.time()
@@ -135,7 +126,7 @@ class DspritesBetaVAE():
                 hist_wtime.append(wtime)
                 
                 # verbose
-                if ibatch % verbose_batch == 0:
+                if verbose_batch > 0 and ibatch % verbose_batch == 0:
                     print(f'Batch {ibatch + 1} / {nbatch_epoch}: '
                         f'loss={loss.numpy():.4e}, '
                         f'reconstr_loss={reconstr_loss.numpy():.4e}, '
@@ -148,7 +139,7 @@ class DspritesBetaVAE():
                 
             # verbose
             nbatch_epoch = ibatch + 1
-            if epoch % verbose_epoch == 0:
+            if verbose_epoch > 0 and epoch % verbose_epoch == 0:
                 print(f'Epoch {epoch + 1} / {epochs}: '
                     f'loss={loss.numpy():.4e}, '
                     f'reconstr_loss={reconstr_loss.numpy():.4e}, '
@@ -158,8 +149,9 @@ class DspritesBetaVAE():
         # save results
         if save_dir is None:
             save_dir = f'output_train/'
-            save_dir += f'nlat={self.latent_dim}__'
             save_dir += f'beta={self.normalized_beta}__'
+            save_dir += f'nlat={self.latent_dim}__'
+            save_dir += f'nConv2D={self.n_filters_first_conv2d}__'
             save_dir += f'seed={self.random_seed}'
         path = Path(save_dir).expanduser()
         path.mkdir(parents=True, exist_ok=True)
@@ -167,8 +159,9 @@ class DspritesBetaVAE():
         # save network hyperparameters
         with open(path / 'hypar_network.txt', 'w') as f:
             f.write(str({
-                'latent_dim': self.latent_dim, 
                 'normalized_beta': self.normalized_beta,
+                'latent_dim': self.latent_dim, 
+                'n_filters_first_conv2d': self.n_filters_first_conv2d,
                 'random_seed': self.random_seed}))
             
         # save training hyperparameters
@@ -187,8 +180,8 @@ class DspritesBetaVAE():
         
     def load_model_weights(self, weights_encoder_h5, weights_decoder_h5):
         # create model
-        self.encoder = create_encoder(self.latent_dim)
-        self.decoder = create_decoder(self.latent_dim)
+        self.encoder = create_encoder(self.latent_dim, self.n_filters_first_conv2d)
+        self.decoder = create_decoder(self.latent_dim, self.n_filters_first_conv2d)
         # load model
         self.encoder.load_weights(weights_encoder_h5)
         self.decoder.load_weights(weights_decoder_h5)
