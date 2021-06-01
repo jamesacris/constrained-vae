@@ -12,8 +12,8 @@ if __name__ == "__main__":
 
     # args
     parser = ArgumentParser()
-    parser.add_argument("-b", "--norm-beta-list", type=float, nargs='+', help="list of normalised betas")
-    parser.add_argument("-z", "--nlat-list", type=int, nargs='+', help="list of latent space dimensions")
+    parser.add_argument("-b", "--norm-beta-list", type=float, nargs='+', required=True, help="list of normalised betas")
+    parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent space dimensions")
     parser.add_argument("--nfilters", default=32, type=int, help="number of filters in the first Conv2D")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
     parser.add_argument("--epochs", default=1, type=int, help="number of training epochs")
