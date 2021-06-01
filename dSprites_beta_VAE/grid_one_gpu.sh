@@ -672,3 +672,4 @@ python train_beta_VAE.py -z 170 --norm_beta 10.0 --epoch 20 --verbose-batch 1000
 python train_beta_VAE.py -z 180 --norm_beta 10.0 --epoch 20 --verbose-batch 1000000 --physical-gpu 0 &
 python train_beta_VAE.py -z 190 --norm_beta 10.0 --epoch 20 --verbose-batch 1000000 --physical-gpu 0 &
 python train_beta_VAE.py -z 200 --norm_beta 10.0 --epoch 20 --verbose-batch 1000000 --physical-gpu 0
+echo "done"
