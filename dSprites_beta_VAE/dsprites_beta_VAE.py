@@ -15,9 +15,15 @@ class Sampling(layers.Layer):
         return z_mean + tf.exp(0.5 * z_log_var) * epsilon
 
 # encoder
+<<<<<<< HEAD
 def create_encoder(latent_dim, n_filters_first_conv2d):
     image_input = keras.Input(shape=(64, 64, 1))
     x = layers.Conv2D(n_filters_first_conv2d, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
+=======
+def create_encoder(latent_dim):
+    image_input = keras.Input(shape=(64, 64, 1))
+    x = layers.Conv2D(32, kernel_size=(5, 5), activation="relu", padding="same")(image_input)
+>>>>>>> 6645f8e89ff5c497393d62cfeb7f534786dd2ad4
     x = layers.MaxPool2D(pool_size=(2, 2))(x)
     x = layers.BatchNormalization()(x)
     x = layers.Conv2D(n_filters_first_conv2d * 2, kernel_size=(3, 3), activation="relu", padding="same")(x)
@@ -92,8 +98,13 @@ class DspritesBetaVAE():
         python_random.seed(self.random_seed)
         np.random.seed(self.random_seed)
         tf.random.set_seed(self.random_seed)
+<<<<<<< HEAD
         self.encoder = create_encoder(self.latent_dim, self.n_filters_first_conv2d)
         self.decoder = create_decoder(self.latent_dim, self.n_filters_first_conv2d)
+=======
+        self.encoder = create_encoder(self.latent_dim)
+        self.decoder = create_decoder(self.latent_dim)
+>>>>>>> 6645f8e89ff5c497393d62cfeb7f534786dd2ad4
         
         # compile
         self.encoder.compile(optimizer=keras.optimizers.Adagrad(learning_rate=lr))
