@@ -1,7 +1,7 @@
 from mpi4py import MPI
 import tensorflow as tf
 
-from argparse import ArgumentParser
+import argparse
 from dsprites_beta_VAE import DspritesBetaVAE
 from dsprites_data import get_dsprites_tf_dataset
 
@@ -11,17 +11,17 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
 
     # args
-    parser = ArgumentParser()
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-b", "--norm-beta-list", type=float, nargs='+', required=True, help="list of normalised betas")
-    parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent space dimensions")
-    parser.add_argument("--nfilters", default=32, type=int, help="number of filters in the first Conv2D")
+    parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent dimensions")
+    parser.add_argument("--nfilters", default=32, type=int, help="number of filters in the first Conv2D layer")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
-    parser.add_argument("--epochs", default=20, type=int, help="number of training epochs")
-    parser.add_argument("--batch-size", default=256, type=int, help="size of mini-batch")
+    parser.add_argument("--epochs", default=20, type=int, help="epochs")
+    parser.add_argument("--batch-size", default=256, type=int, help="batch size")
     parser.add_argument("--learning-rate", default=.01, type=float, help="learning rate")
-    parser.add_argument("--batch-lim-debug", default=None, type=int, help="how many batches to use per epoch (for quick debug)")
-    parser.add_argument("--verbose-batch", default=0, type=int, help="frequency with which to print batch info")
-    parser.add_argument("--verbose-epoch", default=0, type=int, help="frequency with which to print epoch info")
+    parser.add_argument("--batch-lim-debug", default=None, type=int, help="how many mini-batches used per epoch for quick debug")
+    parser.add_argument("--verbose-batch", default=0, type=int, help="interval to print batch info")
+    parser.add_argument("--verbose-epoch", default=0, type=int, help="interval to print epoch info")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
     parser.add_argument("--virtual-gpu-mem", default=None, type=int, 
