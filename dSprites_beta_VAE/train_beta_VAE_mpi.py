@@ -24,8 +24,8 @@ if __name__ == "__main__":
     parser.add_argument("--verbose-epoch", default=0, type=int, help="frequency with which to print epoch info")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
-    parser.add_argument("--virtual-gpu", default=False, action='store_true', help="use virtual gpu to allow njobs > ngpus")
-    parser.add_argument("--virtual-gpu-mem", default=None, type=int, help="virtual gpu memory")
+    parser.add_argument("--virtual-gpu-mem", default=None, type=int, 
+        help="virtual gpu memory; use None to disable virtual GPU")
     args = parser.parse_args()
     
     ########### env ###########
@@ -41,12 +41,12 @@ if __name__ == "__main__":
         device = vCPUs[0]
     else:
         pGPUs = tf.config.list_physical_devices('GPU')
-        if args.virtual_gpu:
+        if args.virtual_gpu_mem is not None:
             nvGPUs_per_pGPU = njobs // len(pGPUs) + int(njobs % len(pGPUs) > 0)
             for pGPU in pGPUs:
                 tf.config.experimental.set_virtual_device_configuration(
                     pGPU, [tf.config.experimental.VirtualDeviceConfiguration(
-                        memory_limit=args.gpu_mem_per_job)] * nvGPUs_per_pGPU)
+                        memory_limit=args.virtual_gpu_mem)] * nvGPUs_per_pGPU)
         else:
             assert len(pGPUs) >= njobs
             for pGPU in pGPUs:
