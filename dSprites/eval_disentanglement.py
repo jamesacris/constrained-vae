@@ -102,9 +102,6 @@ def get_zdiffs(batches, batch_size):
         imgs_sampled_1 = imgs[indices_sampled_1]
         imgs_sampled_2 = imgs[indices_sampled_2]
 
-        # img_pair_1 = tf.convert_to_tensor(imgs_sampled_1)
-        # img_pair_2 = tf.convert_to_tensor(imgs_sampled_2)
-
         z_1 = encoder.predict(imgs_sampled_1)[0]
         z_2 = encoder.predict(imgs_sampled_2)[0]
 
