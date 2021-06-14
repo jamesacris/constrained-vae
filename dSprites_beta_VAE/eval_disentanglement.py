@@ -141,6 +141,9 @@ def estimate_latent_entropies(q_zCx, n_samples_per_ground_truth_value=10000):
     H_z /= batches
     return H_z
 
+def estimate_H_zCv(q_zCx):
+    pass
+
 def compute_mutual_info_metric(model):
     # empirical distribution q(z|x) - sample z
     q_zCx = get_latent_posterior(model)
@@ -149,9 +152,7 @@ def compute_mutual_info_metric(model):
     H_z = estimate_latent_entropies(q_zCx)
 
     # conditional entropy H(z|v)
-    samples_zCx = samples_zCx.view(latents_sizes, model.latent_dim)
-    params_zCx = tuple(p.view(latents_sizes, model.latent_dim) for p in params_zCx)
-    H_zCv = estimate_H_zCv(samples_zCx, params_zCx, lat_sizes, lat_names)
+    H_zCv = estimate_H_zCv(q_zCx)
 
     # I[z_j;v_k] = E[log \sum_x q(z_j|x)p(x|v_k)] + H[z_j] = - H[z_j|v_k] + H[z_j]
     mut_info = - H_zCv + H_z
