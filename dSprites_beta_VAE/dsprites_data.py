@@ -70,19 +70,18 @@ class OrderedDsprites:
         y_all = y_all[shuffle_indices]
         return z_diff_all, y_all
         
-    def compute_disentangle_metric_score(self, bvae, n_zdiff_per_y_train=500, 
-        n_zdiff_per_y_test=100, n_img_per_zdiff=64, random_seed=0):
+    def compute_disentangle_metric_score(self, bvae, n_zdiff_per_y=5000, 
+        n_img_per_zdiff=64, random_seed=0):
         # seed
         np.random.seed(random_seed)
         # prep training and test data
-        zdiff, y = self.compute_zdiff_y(bvae, 
-            n_zdiff_per_y_train + n_zdiff_per_y_test, n_img_per_zdiff)
+        zdiff, y = self.compute_zdiff_y(bvae, n_zdiff_per_y, n_img_per_zdiff)
         # sklearn linear classifier
         classifier = make_pipeline(
             StandardScaler(), 
             SGDClassifier(loss="log", early_stopping=True, random_state=random_seed)
         )
         # train
-        classifier.fit(zdiff[:n_zdiff_per_y_train], y[:n_zdiff_per_y_train])
+        classifier.fit(zdiff, y)
         # score with test data
-        return classifier.score(zdiff[n_zdiff_per_y_train:], y[n_zdiff_per_y_train:])
+        return classifier.score(zdiff, y)
