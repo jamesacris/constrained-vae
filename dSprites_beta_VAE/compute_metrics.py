@@ -16,8 +16,7 @@ if __name__ == "__main__":
     parser.add_argument("-b", "--norm-beta-list", type=float, nargs='+', required=True, help="list of normalised betas")
     parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent dimensions")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
-    parser.add_argument("--n-zdiff-per-y-train",default=500, type=int, help="(disentanglement metric) number of zdiffs to use per ground truth factor to train linear classifier")
-    parser.add_argument("--n-zdiff-per-y-test",default=100, type=int, help="(disentanglement metric) number of zdiffs to use per ground truth factor to evaluate linear classifier")
+    parser.add_argument("--n-zdiff-per-y",default=5000, type=int, help="(disentanglement metric) number of zdiffs to use per ground truth factor to train linear classifier")
     parser.add_argument("--n-img-per-zdiff",default=64, type=int, help="(disentanglement metric) number of images to use to compute each zdiff")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
@@ -69,11 +68,8 @@ if __name__ == "__main__":
     #                        set batch_limit_for_debug=None to use all batches
     with tf.device(device):
         ordered_dsprites = OrderedDsprites()
-        t0 = time.localtime()
         dis_metric = ordered_dsprites.compute_disentangle_metric_score(bvae, 
-            n_zdiff_per_y_train=500, n_zdiff_per_y_test=100, n_img_per_zdiff=64, 
+            n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=64, 
             random_seed=0)
-        wtime = time.localtime() - t0
-        print(wtime)
         with open(folder + '/disentanglement_metric.txt', 'w') as f:
-            f.write(dis_metric)
+            f.write(str(dis_metric))
