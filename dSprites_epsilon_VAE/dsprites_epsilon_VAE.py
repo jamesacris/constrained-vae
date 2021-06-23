@@ -162,7 +162,7 @@ def create_train_lambda_step_func_instance():
 
 
 # epsilon VAE for dsprites
-class DspritesBetaVAE():
+class DspritesEpsilonVAE():
     def __init__(self, normalized_epsilon, constrained_variable,
         latent_dim, n_filters_first_conv2d, random_seed=0):
         self.normalized_epsilon = normalized_epsilon
