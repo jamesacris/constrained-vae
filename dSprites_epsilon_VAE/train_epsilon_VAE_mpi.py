@@ -27,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--learning-rate", default=.01, type=float, help="learning rate")
     parser.add_argument("--batch-lim-debug", default=None, type=int, help="how many mini-batches used per epoch for quick debug")
     parser.add_argument("--verbose-batch", default=0, type=int, help="interval to print batch info")
-    parser.add_argument("--verbose-warmup", default=False, type=bool, help="print warmup info")
+    parser.add_argument("--verbose-warmup", default=False, action='store_true', help="print warmup info")
     parser.add_argument("--verbose-epoch", default=0, type=int, help="interval to print epoch info")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
