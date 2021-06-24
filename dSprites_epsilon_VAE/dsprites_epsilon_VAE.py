@@ -155,6 +155,7 @@ def create_train_lambda_step_func_instance():
             loss = -lagrangian(epsilon, constr_variable, Lambda, reconstruction_loss, kld)
         # calculate and apply gradient
         grad = tape.gradient(target=loss, sources=[Lambda])
+        del tape  # a persistent tape must be deleted manually
         # opt = tf.keras.optimizers.Adam()
         lambda_opt.apply_gradients(zip(grad, [Lambda]))
         # return losses for logging
