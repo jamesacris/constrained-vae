@@ -194,8 +194,10 @@ class DspritesEpsilonVAE():
         hist_loss = []
         hist_reconstr_loss = []
         hist_kl_loss = []
-        hist_lambda = []
         hist_wtime = []
+        # lambda
+        hist_lambda = []
+        hist_lr_lambda = []
         
         # instantiate lambda and optimizer
         Lambda, lambda_opt = create_lambda_with_optimizer()
@@ -220,6 +222,9 @@ class DspritesEpsilonVAE():
             hist_reconstr_loss.append(reconstr_loss)
             hist_kl_loss.append(kl_loss)
             wtime = time.time() - t0
+            hist_wtime.append(wtime)
+            hist_lambda.append(Lambda)
+            hist_lr_lambda.append(lambda_opt._decayed_lr('float32').numpy())
 
             # verbose
             if verbose_batch > 0 and ibatch % verbose_batch == 0:
@@ -257,9 +262,10 @@ class DspritesEpsilonVAE():
                 hist_loss.append(loss)
                 hist_reconstr_loss.append(reconstr_loss)
                 hist_kl_loss.append(kl_loss)
-                hist_lambda.append(Lambda)
                 wtime = time.time() - t0
                 hist_wtime.append(wtime)
+                hist_lambda.append(Lambda)
+                hist_lr_lambda.append(lambda_opt._decayed_lr('float32').numpy())
                 
                 # verbose
                 if verbose_batch > 0 and ibatch % verbose_batch == 0:
@@ -346,8 +352,9 @@ class DspritesEpsilonVAE():
         np.savetxt(path / 'hist_loss.txt', tf.concat(hist_loss, axis=0).numpy())
         np.savetxt(path / 'hist_reconstr_loss.txt', tf.concat(hist_reconstr_loss, axis=0).numpy())
         np.savetxt(path / 'hist_kl_loss.txt', tf.concat(hist_kl_loss, axis=0).numpy())
-        np.savetxt(path / 'hist_lambda.txt', tf.concat(hist_lambda, axis=0).numpy())
         np.savetxt(path / 'hist_wtime.txt', np.array(hist_wtime))
+        np.savetxt(path / 'hist_lambda.txt', tf.concat(hist_lambda, axis=0).numpy())
+        np.savetxt(path / 'hist_lr_lambda.txt', np.array(hist_lr_lambda))
 
         # save model weights
         self.encoder.save_weights(path / 'weights_encoder.h5')
