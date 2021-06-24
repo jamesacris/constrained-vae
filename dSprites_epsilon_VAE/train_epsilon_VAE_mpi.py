@@ -13,8 +13,9 @@ if __name__ == "__main__":
     # args
     # TODO: correct args for epsilon-vae
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-e", "--norm-epsilon-list", type=float, nargs='+', required=True, help="list of normalised epsilons")
+    parser.add_argument("-e", "--norm-epsilon-list", type=float, nargs='+', required=True, help="list of normalised epsilons, used as constraints")
     parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent dimensions")
+    parser.add_argument("-c", "--constrained-variable", type=str, choices=["kld", "reconstr_err"], required=True, help="variable to constrain")
     parser.add_argument("--nfilters", default=32, type=int, help="number of filters in the first Conv2D layer")
     parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
     parser.add_argument("--epochs", default=20, type=int, help="epochs")
@@ -68,8 +69,10 @@ if __name__ == "__main__":
     iepsilon = rank % len(args.norm_epsilon_list)
     ilat = rank // len(args.norm_epsilon_list)
     evae = DspritesEpsilonVAE(normalized_epsilon=args.norm_epsilon_list[iepsilon], 
-        latent_dim=args.nlat_list[ilat], n_filters_first_conv2d=args.nfilters,
-        random_seed=args.seed)
+                            constrained_variable=args.constrained_variable,
+                            latent_dim=args.nlat_list[ilat],
+                            n_filters_first_conv2d=args.nfilters,
+                            random_seed=args.seed)
 
     # train and save
     # save_dir: where to save all results (use None for automatic dir)
