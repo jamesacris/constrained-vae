@@ -34,7 +34,6 @@ if __name__ == "__main__":
     assert njobs == comm.Get_size()
     # cpu threads
     tf.config.threading.set_inter_op_parallelism_threads(args.num_threads)
-    tf.config.threading.set_intra_op_parallelism_threads(args.num_threads)
     # device
     if args.disable_gpu:
         vCPUs = tf.config.experimental.list_logical_devices('CPU')
