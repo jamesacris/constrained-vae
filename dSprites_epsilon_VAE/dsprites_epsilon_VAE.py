@@ -140,6 +140,7 @@ def create_train_weights_step_func_instance():
 
 # Constraint training step (updates lambda). Pass optimizer.
 def create_train_lambda_step_func_instance():
+    @tf.function
     def train_lambda_step(x, Lambda, lambda_opt, constr_variable, epsilon, encoder, decoder, lagrangian):
         with tf.GradientTape(persistent=True) as tape:
             # encoding
