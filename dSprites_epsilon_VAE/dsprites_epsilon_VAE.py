@@ -228,7 +228,7 @@ class DspritesEpsilonVAE():
                         f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20), end='\r')
                         
                 # quick debug
-                if ibatch + 1 >= batch_limit_for_debug:
+                if batch_limit_for_debug is not None and ibatch + 1 >= batch_limit_for_debug:
                     break
 
                 # perform l 'train model weight' steps
@@ -266,11 +266,11 @@ class DspritesEpsilonVAE():
                             f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20), end='\r')
                             
                     # quick debug
-                    if ibatch + 1 >= batch_limit_for_debug:
+                    if batch_limit_for_debug is not None and ibatch + 1 >= batch_limit_for_debug:
                         break
                         
                 # quick debug (not duplication, needed)
-                if ibatch + 1 >= batch_limit_for_debug:
+                if batch_limit_for_debug is not None and ibatch + 1 >= batch_limit_for_debug:
                     break
                         
                 # update l every nd-th step
