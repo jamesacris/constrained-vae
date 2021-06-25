@@ -112,24 +112,21 @@ def train_lambda_step(x, encoder, decoder, Lambda,
     # create Variable for Lambda
     lambda_var = tf.Variable(Lambda)
     # constrain kld
-    with tf.GradientTape() as tape:
-        if constr_variable == "kld":
-            # constraint h
-            h = tf.nn.relu(kld - epsilon)
-            # Lagrangian
-            loss = reconstr_loss + lambda_var * h
-        # constrain reconstruction error
-        elif constr_variable == "reconstr_err":
-            # constraint h
-            h = tf.nn.relu(reconstr_loss - epsilon)
-            # Lagrangian
-            loss = kld + lambda_var * h
-        else:
-            raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
-    # calculate and apply gradient
-    grad = tape.gradient(target=loss, sources=lambda_var)
+    if constr_variable == "kld":
+        # constraint h
+        h = tf.nn.relu(kld - epsilon)
+        # Lagrangian
+        loss = reconstr_loss + lambda_var * h
+    # constrain reconstruction error
+    elif constr_variable == "reconstr_err":
+        # constraint h
+        h = tf.nn.relu(reconstr_loss - epsilon)
+        # Lagrangian
+        loss = kld + lambda_var * h
+    else:
+        raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
     # apply gradient (SGA)
-    Lambda += lambda_lr_obj.get_lr(update_step=True) * grad
+    Lambda += lambda_lr_obj.get_lr(update_step=True) * h
     # return losses for logging and Lambda for update
     return loss, reconstr_loss, kld, Lambda
 
