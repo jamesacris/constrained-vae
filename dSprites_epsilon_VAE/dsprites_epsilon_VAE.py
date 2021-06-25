@@ -58,21 +58,61 @@ class LambdaLearningRate:
             self.step += 1
         return lr
 
-# training step
-def train_step(x, encoder, decoder, Lambda, 
-               constr_variable, epsilon, lambda_lr_obj, update_weights):
+# training step: weights
+def create_train_w_step_func_instance():
+    @tf.function
+    def train_w_step(x, encoder, decoder, Lambda, 
+                     constr_variable, epsilon):
+        with tf.GradientTape(persistent=True) as tape:
+            # encoding
+            z_mean, z_log_var, z = encoder(x)
+            # decoding
+            x_prime = decoder(z)
+            # reconstruction error -- Must be pixel mean for normalized epsilon
+            reconstr_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
+            # KL divergence -- Must be latent mean for normalized epsilon
+            kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
+            # constrain kld
+            if constr_variable == "kld":
+                # constraint h
+                h = tf.nn.relu(kld - epsilon)
+                # Lagrangian
+                loss = reconstr_loss + Lambda * h
+            # constrain reconstruction error
+            elif constr_variable == "reconstr_err":
+                # constraint h
+                h = tf.nn.relu(reconstr_loss - epsilon)
+                # Lagrangian
+                loss = kld + Lambda * h
+            else:
+                raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
+        # compute gradients
+        encoder_grads = tape.gradient(loss, encoder.trainable_weights)
+        decoder_grads = tape.gradient(loss, decoder.trainable_weights)
+        # apply gradients
+        encoder.optimizer.apply_gradients(zip(encoder_grads, encoder.trainable_weights))
+        decoder.optimizer.apply_gradients(zip(decoder_grads, decoder.trainable_weights))
+        del tape  # a persistent tape must be deleted manually 
+        # return losses for logging and Lambda for update
+        return loss, reconstr_loss, kld
+    return train_w_step
+    
+# training step: lambda
+def train_lambda_step(x, encoder, decoder, Lambda, 
+                      constr_variable, epsilon, lambda_lr_obj):
+    # encoding
+    z_mean, z_log_var, z = encoder.predict(x)
+    # decoding
+    x_prime = decoder.predict(z)
+    # reconstruction error -- Must be pixel mean for normalized epsilon
+    reconstr_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
+    # KL divergence -- Must be latent mean for normalized epsilon
+    kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
+
     # create Variable for Lambda
     lambda_var = tf.Variable(Lambda)
-    with tf.GradientTape(persistent=True) as tape:
-        # encoding
-        z_mean, z_log_var, z = encoder(x)
-        # decoding
-        x_prime = decoder(z)
-        # reconstruction error -- Must be pixel mean for normalized epsilon
-        reconstr_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
-        # KL divergence -- Must be latent mean for normalized epsilon
-        kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-        # constrain kld
+    # constrain kld
+    with tf.GradientTape() as tape:
         if constr_variable == "kld":
             # constraint h
             h = tf.nn.relu(kld - epsilon)
@@ -86,19 +126,10 @@ def train_step(x, encoder, decoder, Lambda,
             loss = kld + lambda_var * h
         else:
             raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
-    if update_weights:
-        # compute gradients
-        encoder_grads = tape.gradient(loss, encoder.trainable_weights)
-        decoder_grads = tape.gradient(loss, decoder.trainable_weights)
-        # apply gradients
-        encoder.optimizer.apply_gradients(zip(encoder_grads, encoder.trainable_weights))
-        decoder.optimizer.apply_gradients(zip(decoder_grads, decoder.trainable_weights))
-    else:
-        # calculate and apply gradient
-        grad = tape.gradient(target=loss, sources=lambda_var)
-        # apply gradient (SGA)
-        Lambda += lambda_lr_obj.get_lr(update_step=True) * grad
-    del tape  # a persistent tape must be deleted manually 
+    # calculate and apply gradient
+    grad = tape.gradient(target=loss, sources=lambda_var)
+    # apply gradient (SGA)
+    Lambda += lambda_lr_obj.get_lr(update_step=True) * grad
     # return losses for logging and Lambda for update
     return loss, reconstr_loss, kld, Lambda
 
@@ -147,7 +178,11 @@ class DspritesEpsilonVAE():
         
         # instantiate lambda and optimizer
         Lambda = tf.zeros(shape=())
-        lambda_lr_obj = LambdaLearningRate(lambda_lr0, lambda_lr_decay_rate, lambda_lr_decay_step)
+        lambda_lr_obj = LambdaLearningRate(lambda_lr0, lambda_lr_decay_rate, 
+                                           lambda_lr_decay_step)
+        
+        # train steps
+        train_w_step = create_train_w_step_func_instance()
         
         # warmup loop (train without constraint)
         # TODO Where to output warmup time to?
@@ -155,11 +190,10 @@ class DspritesEpsilonVAE():
         for ibatch, batch in enumerate(dataset):
             # warmup
             image_batch = tf.squeeze(batch['image'])
-            loss, reconstr_loss, kl_loss, Lambda = train_step(
+            loss, reconstr_loss, kl_loss = train_w_step(
                 image_batch,
                 self.encoder, self.decoder, Lambda, 
-                self.constrained_variable, self.normalized_epsilon,
-                lambda_lr_obj, update_weights=True)
+                self.constrained_variable, self.normalized_epsilon)
 
             # log history
             hist_loss.append(loss)
@@ -203,11 +237,11 @@ class DspritesEpsilonVAE():
                     break
                 # perform one 'train lambda' step
                 image_batch = tf.squeeze(batch['image'])
-                loss, reconstr_loss, kl_loss, Lambda = train_step(
+                loss, reconstr_loss, kl_loss, Lambda = train_lambda_step(
                     image_batch,
                     self.encoder, self.decoder, Lambda, 
                     self.constrained_variable, self.normalized_epsilon,
-                    lambda_lr_obj, update_weights=False)
+                    lambda_lr_obj)
                 
                 # log history
                 hist_loss.append(loss)
@@ -241,11 +275,10 @@ class DspritesEpsilonVAE():
 
                     # train model weights
                     image_batch = tf.squeeze(batch['image'])
-                    loss, reconstr_loss, kl_loss, Lambda = train_step(
+                    loss, reconstr_loss, kl_loss = train_w_step(
                         image_batch,
                         self.encoder, self.decoder, Lambda, 
-                        self.constrained_variable, self.normalized_epsilon,
-                        lambda_lr_obj, update_weights=True)
+                        self.constrained_variable, self.normalized_epsilon)
                     
                     # log history
                     hist_loss.append(loss)
