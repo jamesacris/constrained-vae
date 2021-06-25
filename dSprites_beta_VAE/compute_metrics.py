@@ -15,15 +15,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-b", "--norm-beta-list", type=float, nargs='+', required=True, help="list of normalised betas")
     parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent dimensions")
-    parser.add_argument("--seed", default=0, type=int, help="random seed to initialise model weights")
+    parser.add_argument("--seed-model", default=0, type=int, help="random seed to initialise model weights")
     parser.add_argument("--n-zdiff-per-y",default=5000, type=int, help="(disentanglement metric) number of zdiffs to use per ground truth factor to train linear classifier")
     parser.add_argument("--n-img-per-zdiff",default=64, type=int, help="(disentanglement metric) number of images to use to compute each zdiff")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
-    parser.add_argument("--virtual-gpu-mem", default=None, type=int, 
+    parser.add_argument("--virtual-gpu-mem", default=None, type=int,
         help="virtual gpu memory; use None to disable virtual GPU")
+    parser.add_argument("--seed", default=0, type=int, help="random seed for linear classifier")
     args = parser.parse_args()
-    
+
     ########### env ###########
     # check mpi size
     njobs = len(args.norm_beta_list) * len(args.nlat_list)
@@ -54,13 +55,13 @@ if __name__ == "__main__":
     # create bvae
     ibeta = rank % len(args.norm_beta_list)
     ilat = rank // len(args.norm_beta_list)
-    bvae = DspritesBetaVAE(normalized_beta=args.norm_beta_list[ibeta], 
+    bvae = DspritesBetaVAE(normalized_beta=args.norm_beta_list[ibeta],
         latent_dim=args.nlat_list[ilat], n_filters_first_conv2d=32,
-        random_seed=args.seed)
+        random_seed=args.seed_model)
     # filename
-    folder = f'output_train/nlat={args.nlat_list[ilat]}__beta={args.norm_beta_list[ibeta]}__seed={args.seed}'
-    bvae.load_model_weights(folder + '/weights_encoder.h5', folder + '/weights_decoder.h5')    
-    
+    folder = f'output_train/beta={args.norm_beta_list[ibeta]}__nlat={args.nlat_list[ilat]}__nConv2D=32__seed={args.seed_model}'
+    bvae.load_model_weights(folder + '/weights_encoder.h5', folder + '/weights_decoder.h5')
+
 
     # train and save
     # save_dir: where to save all results (use None for automatic dir)
@@ -68,8 +69,8 @@ if __name__ == "__main__":
     #                        set batch_limit_for_debug=None to use all batches
     with tf.device(device):
         ordered_dsprites = OrderedDsprites()
-        dis_metric = ordered_dsprites.compute_disentangle_metric_score(bvae, 
-            n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=64, 
-            random_seed=0)
-        with open(folder + '/disentanglement_metric.txt', 'w') as f:
+        dis_metric = ordered_dsprites.compute_disentangle_metric_score(bvae,
+            n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=64,
+            random_seed=args.seed)
+        with open(folder + f'/disentanglement_metric__samples={args.n_zdiff_per_y}__seed={args.seed}.txt', 'w') as f:
             f.write(str(dis_metric))
