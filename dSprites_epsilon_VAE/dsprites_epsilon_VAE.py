@@ -43,130 +43,69 @@ def create_decoder(latent_dim, n_filters_first_conv2d):
     image_output = layers.Reshape((64, 64))(x)
     decoder = keras.Model(z_input, image_output)
     return decoder
+    
+# learning rate for lambda
+class LambdaLearningRate:
+    def __init__(self, lr0, decay_rate, decay_step):
+        self.lr0 = lr0
+        self.decay_rate = decay_rate
+        self.decay_step = decay_step
+        self.step = 0
+        
+    def get_lr(self, update_step=True):
+        lr = self.lr0 / (1 + self.decay_rate * self.step / self.decay_step)
+        if update_step:
+            self.step += 1
+        return lr
 
-# lagrange multiplier lambda (a trainable parameter)
-# TODO: Is there a better way to wrap this up, e.g. a small keras model similar to encoder/decoder?
-#       Passing optimiser to train_lambda_step is awkward.
-def create_lambda_with_optimizer(initial_learning_rate=0.01,
-    decay_steps=1, decay_rate=1e-3):
-    Lambda = tf.Variable(0.0)
-    learning_rate_lambda = keras.optimizers.schedules.InverseTimeDecay(
-        initial_learning_rate, decay_steps, decay_rate
-    )
-    opt_lambda = keras.optimizers.SGD(learning_rate=learning_rate_lambda)
-    return Lambda, opt_lambda
-
-# train steps
-# why using this wrapper around train_step:
-# https://github.com/tensorflow/tensorflow/issues/27120#issuecomment-540071844
-# Lagrangian loss function
-def create_lagrangian_func_instance():
-    @tf.function
-    def lagrangian(epsilon, constr_variable, Lambda, reconstr_loss, kld):
+# training step
+def train_step(x, encoder, decoder, Lambda, 
+               constr_variable, epsilon, lambda_lr_obj, update_weights):
+    # create Variable for Lambda
+    lambda_var = tf.Variable(Lambda)
+    with tf.GradientTape(persistent=True) as tape:
+        # encoding
+        z_mean, z_log_var, z = encoder(x)
+        # decoding
+        x_prime = decoder(z)
+        # reconstruction error -- Must be pixel mean for normalized epsilon
+        reconstr_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
+        # KL divergence -- Must be latent mean for normalized epsilon
+        kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
         # constrain kld
         if constr_variable == "kld":
             # constraint h
             h = tf.nn.relu(kld - epsilon)
             # Lagrangian
-            l = reconstr_loss + Lambda * h
+            loss = reconstr_loss + lambda_var * h
         # constrain reconstruction error
         elif constr_variable == "reconstr_err":
             # constraint h
             h = tf.nn.relu(reconstr_loss - epsilon)
             # Lagrangian
-            l = kld + Lambda * h
+            loss = kld + lambda_var * h
         else:
             raise ValueError(f"constrained_variable must be one of ['kld', 'reconstr_err']")
-        return tf.reduce_mean(l)
-    return lagrangian
-
-# Warmup training step (this is just train_w_step with lambda = 0)
-def create_warmup_step_func_instance():
-    @tf.function
-    def warmup_step(x, encoder, decoder, constr_variable):
-        with tf.GradientTape(persistent=True) as tape:
-            # encoding
-            z_mean, z_log_var, z = encoder(x)
-            # decoding
-            x_prime = decoder(z)
-            # reconstruction error -- Must be pixel mean for normalized epsilon
-            reconstruction_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
-            # KL divergence -- Must be latent mean for normalized epsilon
-            kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-            if constr_variable == "kld":
-                loss = reconstruction_loss  # optimise for reconstruction err only
-            elif constr_variable == "reconstr_err":
-                loss = kld  # optimise for kld only
-            else:
-                raise ValueError(
-                    f"constrained_variable must be one of ['kld', 'reconstr_err']"
-                )
+    if update_weights:
         # compute gradients
         encoder_grads = tape.gradient(loss, encoder.trainable_weights)
         decoder_grads = tape.gradient(loss, decoder.trainable_weights)
-        del tape  # a persistent tape must be deleted manually 
         # apply gradients
         encoder.optimizer.apply_gradients(zip(encoder_grads, encoder.trainable_weights))
         decoder.optimizer.apply_gradients(zip(decoder_grads, decoder.trainable_weights))
-        # return losses for logging
-        return loss, reconstruction_loss, kld
-    return warmup_step
-
-# weights training step (updates model params)
-def create_train_weights_step_func_instance():
-    @tf.function
-    def train_w_step(x, Lambda, constr_variable, epsilon, encoder, decoder, lagrangian):
-        with tf.GradientTape(persistent=True) as tape:
-            # encoding
-            z_mean, z_log_var, z = encoder(x)
-            # decoding
-            x_prime = decoder(z)
-            # reconstruction error -- Must be pixel mean for normalized epsilon
-            reconstruction_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
-            # KL divergence -- Must be latent mean for normalized epsilon
-            kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-            # loss = lagrangian
-            loss = lagrangian(epsilon, constr_variable, Lambda, reconstruction_loss, kld)
-        # compute gradients
-        encoder_grads = tape.gradient(loss, encoder.trainable_weights)
-        decoder_grads = tape.gradient(loss, decoder.trainable_weights)
-        del tape  # a persistent tape must be deleted manually 
-        # apply gradients
-        encoder.optimizer.apply_gradients(zip(encoder_grads, encoder.trainable_weights))
-        decoder.optimizer.apply_gradients(zip(decoder_grads, decoder.trainable_weights))
-        # return losses for logging
-        return loss, reconstruction_loss, kld, Lambda
-    return train_w_step
-
-# Constraint training step (updates lambda). Pass optimizer.
-def create_train_lambda_step_func_instance():
-    @tf.function
-    def train_lambda_step(x, Lambda, lambda_opt, constr_variable, epsilon, encoder, decoder, lagrangian):
-        with tf.GradientTape(persistent=True) as tape:
-            # encoding
-            z_mean, z_log_var, z = encoder(x)
-            # decoding
-            x_prime = decoder(z)
-            # reconstruction error -- Must be pixel mean for normalized epsilon
-            reconstruction_loss = tf.reduce_mean(keras.losses.binary_crossentropy(x, x_prime))
-            # KL divergence -- Must be latent mean for normalized epsilon
-            kld = -0.5 * tf.reduce_mean(1 + z_log_var - tf.square(z_mean) - tf.exp(z_log_var))
-            # loss = - lagrangian (SGA)
-            loss = -lagrangian(epsilon, constr_variable, Lambda, reconstruction_loss, kld)
+    else:
         # calculate and apply gradient
-        grad = tape.gradient(target=loss, sources=[Lambda])
-        del tape  # a persistent tape must be deleted manually
-        # opt = tf.keras.optimizers.Adam()
-        lambda_opt.apply_gradients(zip(grad, [Lambda]))
-        # return losses for logging
-        return loss, reconstruction_loss, kld, Lambda
-    return train_lambda_step
-
+        grad = tape.gradient(target=loss, sources=lambda_var)
+        # apply gradient (SGA)
+        Lambda += lambda_lr_obj.get_lr(update_step=True) * grad
+    del tape  # a persistent tape must be deleted manually 
+    # return losses for logging and Lambda for update
+    return loss, reconstr_loss, kld, Lambda
 
 # epsilon VAE for dsprites
 class DspritesEpsilonVAE():
     def __init__(self, normalized_epsilon, constrained_variable,
-        latent_dim, n_filters_first_conv2d, random_seed=0):
+                 latent_dim, n_filters_first_conv2d, random_seed=0):
         self.normalized_epsilon = normalized_epsilon
         self.constrained_variable = constrained_variable
         self.latent_dim = latent_dim
@@ -174,10 +113,12 @@ class DspritesEpsilonVAE():
         self.random_seed = random_seed
         self.encoder = None
         self.decoder = None
-        self.lambda_optimizer = None
         
-    def train_save(self, dataset, epochs=10, warmup_iters=100, l=1, d=1, nd=2, batch_size=256, lr=.01, save_dir=None,
-                   verbose_batch=100, verbose_warmup=True, verbose_epoch=1, batch_limit_for_debug=None):
+    def train_save(self, dataset, epochs=10, warmup_iters=100, 
+                   l=1, d=1, nd=2, batch_size=256, lr=.01, 
+                   lambda_lr0=.01, lambda_lr_decay_rate=1e-3, lambda_lr_decay_step=1,
+                   save_dir=None, verbose_batch=100, verbose_epoch=1, 
+                   batch_limit_for_debug=None):
         # batch dataset
         dataset = dataset.unbatch().batch(batch_size)
         
@@ -197,18 +138,16 @@ class DspritesEpsilonVAE():
         hist_reconstr_loss = []
         hist_kl_loss = []
         hist_wtime = []
-        # lambda
         hist_lambda = []
-        hist_lr_lambda = []
+        hist_lambda_lr = []
+        # 0: warmup
+        # 1: lambda
+        # 2: weights
+        hist_state = []
         
         # instantiate lambda and optimizer
-        Lambda, lambda_opt = create_lambda_with_optimizer()
-
-        # instantiate training step functions
-        lagrangian = create_lagrangian_func_instance()
-        warmup_step = create_warmup_step_func_instance()
-        train_w_step = create_train_weights_step_func_instance()
-        train_lambda_step = create_train_lambda_step_func_instance()
+        Lambda = tf.zeros(shape=())
+        lambda_lr_obj = LambdaLearningRate(lambda_lr0, lambda_lr_decay_rate, lambda_lr_decay_step)
         
         # warmup loop (train without constraint)
         # TODO Where to output warmup time to?
@@ -216,17 +155,20 @@ class DspritesEpsilonVAE():
         for ibatch, batch in enumerate(dataset):
             # warmup
             image_batch = tf.squeeze(batch['image'])
-            loss, reconstr_loss, kl_loss = warmup_step(image_batch,
-            self.encoder, self.decoder, self.constrained_variable)
+            loss, reconstr_loss, kl_loss, Lambda = train_step(
+                image_batch,
+                self.encoder, self.decoder, Lambda, 
+                self.constrained_variable, self.normalized_epsilon,
+                lambda_lr_obj, update_weights=True)
 
             # log history
             hist_loss.append(loss)
             hist_reconstr_loss.append(reconstr_loss)
             hist_kl_loss.append(kl_loss)
-            wtime = time.time() - t0
-            hist_wtime.append(wtime)
+            hist_wtime.append(time.time() - t0)
             hist_lambda.append(Lambda)
-            hist_lr_lambda.append(lambda_opt._decayed_lr('float32').numpy())
+            hist_lambda_lr.append(lambda_lr_obj.get_lr(update_step=False))
+            hist_state.append(0)
 
             # verbose
             if verbose_batch > 0 and ibatch % verbose_batch == 0:
@@ -234,50 +176,61 @@ class DspritesEpsilonVAE():
                     f'loss={loss.numpy():.4e}, '
                     f'reconstr_loss={reconstr_loss.numpy():.4e}, '
                     f'kl_loss={kl_loss.numpy():.4e}, '
-                    f'wtime={wtime:.1f}' + (' ' * 10), end='\r')
+                    f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20), end='\r')
             
             # stop when warmup complete
             if ibatch + 1 >= warmup_iters:
                 break
         
         # verbose
-        if verbose_warmup:
+        if verbose_epoch > 0:
             print(f'Warmup: '
                 f'loss={loss.numpy():.4e}, '
                 f'reconstr_loss={reconstr_loss.numpy():.4e}, '
                 f'kl_loss={kl_loss.numpy():.4e}, '
-                f'wtime={wtime:.1f}' + (' ' * 10))
+                f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20))
 
         # training loop (train with constraint)
         t0 = time.time()
         nbatch_epoch = 'unknown'
         for epoch in range(epochs):
             enum_data = enumerate(dataset)
-            for ibatch, batch in enum_data:
+            while True:
+                # attempt to get next batch, if there is one
+                try:
+                    ibatch, batch = next(enum_data)
+                except StopIteration:
+                    break
                 # perform one 'train lambda' step
                 image_batch = tf.squeeze(batch['image'])
-                loss, reconstr_loss, kl_loss, Lambda = train_lambda_step(
-                    image_batch, Lambda, lambda_opt, self.constrained_variable,
-                    self.normalized_epsilon, self.encoder, self.decoder, lagrangian)
+                loss, reconstr_loss, kl_loss, Lambda = train_step(
+                    image_batch,
+                    self.encoder, self.decoder, Lambda, 
+                    self.constrained_variable, self.normalized_epsilon,
+                    lambda_lr_obj, update_weights=False)
                 
                 # log history
                 hist_loss.append(loss)
                 hist_reconstr_loss.append(reconstr_loss)
                 hist_kl_loss.append(kl_loss)
-                wtime = time.time() - t0
-                hist_wtime.append(wtime)
+                hist_wtime.append(time.time() - t0)
                 hist_lambda.append(Lambda)
-                hist_lr_lambda.append(lambda_opt._decayed_lr('float32').numpy())
+                hist_lambda_lr.append(lambda_lr_obj.get_lr(update_step=False))
+                hist_state.append(1)
                 
                 # verbose
                 if verbose_batch > 0 and ibatch % verbose_batch == 0:
-                    print(f'Training batch {ibatch + 1} / {nbatch_epoch}: '
+                    print(f'Batch {ibatch + 1} / {nbatch_epoch}: '
                         f'loss={loss.numpy():.4e}, '
                         f'reconstr_loss={reconstr_loss.numpy():.4e}, '
                         f'kl_loss={kl_loss.numpy():.4e}, '
                         f'lambda={Lambda.numpy():.4e}, '
-                        f'wtime={wtime:.1f}' + (' ' * 10), end='\r')
-                
+                        f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20), end='\r')
+                        
+                # quick debug
+                if ibatch + 1 >= batch_limit_for_debug:
+                    break
+
                 # perform l 'train model weight' steps
                 for i in range(l):
                     # attempt to get next batch, if there is one
@@ -288,26 +241,41 @@ class DspritesEpsilonVAE():
 
                     # train model weights
                     image_batch = tf.squeeze(batch['image'])
-                    loss, reconstr_loss, kl_loss, Lambda = train_w_step(
-                        image_batch, Lambda, self.constrained_variable,
-                        self.normalized_epsilon, self.encoder, self.decoder, lagrangian)
+                    loss, reconstr_loss, kl_loss, Lambda = train_step(
+                        image_batch,
+                        self.encoder, self.decoder, Lambda, 
+                        self.constrained_variable, self.normalized_epsilon,
+                        lambda_lr_obj, update_weights=True)
+                    
+                    # log history
+                    hist_loss.append(loss)
+                    hist_reconstr_loss.append(reconstr_loss)
+                    hist_kl_loss.append(kl_loss)
+                    hist_wtime.append(time.time() - t0)
+                    hist_lambda.append(Lambda)
+                    hist_lambda_lr.append(lambda_lr_obj.get_lr(update_step=False))
+                    hist_state.append(2)
 
                     # verbose
                     if verbose_batch > 0 and ibatch % verbose_batch == 0:
-                        print(f'Training batch {ibatch + 1} / {nbatch_epoch}: '
+                        print(f'Batch {ibatch + 1} / {nbatch_epoch}: '
                             f'loss={loss.numpy():.4e}, '
                             f'reconstr_loss={reconstr_loss.numpy():.4e}, '
                             f'kl_loss={kl_loss.numpy():.4e}, '
                             f'lambda={Lambda.numpy():.4e}, '
-                            f'wtime={wtime:.1f}' + (' ' * 10), end='\r')
-
+                            f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20), end='\r')
+                            
+                    # quick debug
+                    if ibatch + 1 >= batch_limit_for_debug:
+                        break
+                        
+                # quick debug (not duplication, needed)
+                if ibatch + 1 >= batch_limit_for_debug:
+                    break
+                        
                 # update l every nd-th step
-                if ibatch % nd == 0:
-                    l = l + d
-
-                # quick debug
-                if ibatch + 1 == batch_limit_for_debug:
-                    break        
+                if lambda_lr_obj.step % nd == 0:
+                    l = l + d        
                 
             # verbose
             nbatch_epoch = ibatch + 1
@@ -317,7 +285,7 @@ class DspritesEpsilonVAE():
                     f'reconstr_loss={reconstr_loss.numpy():.4e}, '
                     f'kl_loss={kl_loss.numpy():.4e}, '
                     f'lambda={Lambda.numpy():.4e}, '
-                    f'wtime={wtime:.1f}' + (' ' * 10))
+                    f'wtime={hist_wtime[-1]:.1f}' + (' ' * 20))
                     
         # save results
         if save_dir is None:
@@ -356,7 +324,8 @@ class DspritesEpsilonVAE():
         np.savetxt(path / 'hist_kl_loss.txt', tf.concat(hist_kl_loss, axis=0).numpy())
         np.savetxt(path / 'hist_wtime.txt', np.array(hist_wtime))
         np.savetxt(path / 'hist_lambda.txt', tf.concat(hist_lambda, axis=0).numpy())
-        np.savetxt(path / 'hist_lr_lambda.txt', np.array(hist_lr_lambda))
+        np.savetxt(path / 'hist_lambda_lr.txt', np.array(hist_lambda_lr))
+        np.savetxt(path / 'hist_state.txt', np.array(hist_state), fmt='%d')
 
         # save model weights
         self.encoder.save_weights(path / 'weights_encoder.h5')

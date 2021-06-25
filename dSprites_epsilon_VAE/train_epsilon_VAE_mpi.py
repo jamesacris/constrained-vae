@@ -24,10 +24,12 @@ if __name__ == "__main__":
     parser.add_argument("-d", default=1, type=int, help="d, value to increment l by")
     parser.add_argument("--nd", default=2, type=int, help="nd, interval to increment l")
     parser.add_argument("--batch-size", default=256, type=int, help="batch size")
-    parser.add_argument("--learning-rate", default=.01, type=float, help="learning rate")
+    parser.add_argument("--learning-rate", default=.01, type=float, help="learning rate for NN weights")
+    parser.add_argument("--lambda-lr0", default=.01, type=float, help="initial learning rate for lambda")
+    parser.add_argument("--lambda-lr-decay-rate", default=1e-3, type=float, help="learning rate decay rate for lambda")
+    parser.add_argument("--lambda-lr-decay-step", default=1, type=float, help="learning rate decay step for lambda")
     parser.add_argument("--batch-lim-debug", default=None, type=int, help="how many mini-batches used per epoch for quick debug")
     parser.add_argument("--verbose-batch", default=0, type=int, help="interval to print batch info")
-    parser.add_argument("--verbose-warmup", default=False, action='store_true', help="print warmup info")
     parser.add_argument("--verbose-epoch", default=0, type=int, help="interval to print epoch info")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
@@ -68,17 +70,21 @@ if __name__ == "__main__":
     iepsilon = rank % len(args.norm_epsilon_list)
     ilat = rank // len(args.norm_epsilon_list)
     evae = DspritesEpsilonVAE(normalized_epsilon=args.norm_epsilon_list[iepsilon], 
-                            constrained_variable=args.constrained_variable,
-                            latent_dim=args.nlat_list[ilat],
-                            n_filters_first_conv2d=args.nfilters,
-                            random_seed=args.seed)
+                              constrained_variable=args.constrained_variable,
+                              latent_dim=args.nlat_list[ilat],
+                              n_filters_first_conv2d=args.nfilters,
+                              random_seed=args.seed)
 
     # train and save
     # save_dir: where to save all results (use None for automatic dir)
     # batch_limit_for_debug: how many batches to use per epoch (for quick debug)
     #                        set batch_limit_for_debug=None to use all batches
     with tf.device(device):
-        evae.train_save(dset, epochs=args.epochs, warmup_iters=args.warmup_iters, l=args.l, d=args.d, nd=args.nd, 
-                        batch_size=args.batch_size, lr=args.learning_rate, save_dir=None,
-                        verbose_batch=args.verbose_batch, verbose_warmup=args.verbose_warmup,
-                        verbose_epoch=args.verbose_epoch, batch_limit_for_debug=args.batch_lim_debug)
+        evae.train_save(dset, epochs=args.epochs, warmup_iters=args.warmup_iters, 
+                        l=args.l, d=args.d, nd=args.nd, 
+                        batch_size=args.batch_size, lr=args.learning_rate, 
+                        lambda_lr0=args.lambda_lr0, lambda_lr_decay_rate=args.lambda_lr_decay_rate, 
+                        lambda_lr_decay_step=args.lambda_lr_decay_step,
+                        save_dir=None, 
+                        verbose_batch=args.verbose_batch, verbose_epoch=args.verbose_epoch, 
+                        batch_limit_for_debug=args.batch_lim_debug)
