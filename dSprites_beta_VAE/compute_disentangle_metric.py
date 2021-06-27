@@ -17,7 +17,7 @@ if __name__ == "__main__":
     parser.add_argument("-z", "--nlat-list", type=int, nargs='+', required=True, help="list of latent dimensions")
     parser.add_argument("--seed-model", default=0, type=int, help="random seed to initialise model weights")
     parser.add_argument("--n-zdiff-per-y",default=5000, type=int, help="(disentanglement metric) number of zdiffs to use per ground truth factor to train linear classifier")
-    parser.add_argument("--n-img-per-zdiff",default=64, type=int, help="(disentanglement metric) number of images to use to compute each zdiff")
+    parser.add_argument("--n-img-per-zdiff",default=256, type=int, help="(disentanglement metric) number of images to use to compute each zdiff")
     parser.add_argument("--num_threads", default=1, type=int, help="max threads per job")
     parser.add_argument("--disable-gpu", default=False, action='store_true', help="use cpu for training")
     parser.add_argument("--virtual-gpu-mem", default=None, type=int,
