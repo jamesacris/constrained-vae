@@ -70,7 +70,7 @@ if __name__ == "__main__":
     with tf.device(device):
         ordered_dsprites = OrderedDsprites()
         dis_metric = ordered_dsprites.compute_disentangle_metric_score(bvae,
-            n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=64,
+            n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=args.n_img_per_zdiff,
             random_seed=args.seed)
         with open(folder + f'/disentanglement_metric__samples={args.n_zdiff_per_y}__seed={args.seed}.txt', 'w') as f:
             f.write(str(dis_metric))

@@ -32,10 +32,10 @@ class OrderedDsprites:
         indices = np.dot(latent_samples, self.latent_bases).astype(int)
         return self.imgs[indices]
         
-    def compute_zdiff_y(self, bvae, n_zdiff_per_y, n_img_per_zdiff):
+    def compute_zdiff_y(self, vae, n_zdiff_per_y, n_img_per_zdiff):
         # create arrays
         y_size = self.latent_sizes.size
-        z_diff_all = np.zeros((y_size, n_zdiff_per_y, bvae.latent_dim))
+        z_diff_all = np.zeros((y_size, n_zdiff_per_y, vae.latent_dim))
         y_all = np.zeros((y_size, n_zdiff_per_y), dtype=int)
         
         for y in range(y_size):
@@ -48,19 +48,19 @@ class OrderedDsprites:
             x1 = self.get_images_from_latent(v1)
             x2 = self.get_images_from_latent(v2)
             # encode    
-            z1 = bvae.encoder.predict(x1)[0]
-            z2 = bvae.encoder.predict(x2)[0]
+            z1 = vae.encoder.predict(x1)[0]
+            z2 = vae.encoder.predict(x2)[0]
             # z_diff
             z_diff = np.abs(z1 - z2)
             # separate dimensions: n_zdiff_per_y, n_img_per_zdiff
-            z_diff = z_diff.reshape((n_zdiff_per_y, n_img_per_zdiff, bvae.latent_dim))
+            z_diff = z_diff.reshape((n_zdiff_per_y, n_img_per_zdiff, vae.latent_dim))
             # take average over n_img_per_zdiff
             z_diff_all[y, :, :] = np.mean(z_diff, axis=1)
             # y
             y_all[y, :] = y
     
         # merge dimensions: y_size, n_zdiff_per_y
-        z_diff_all = z_diff_all.reshape((y_size * n_zdiff_per_y, bvae.latent_dim))
+        z_diff_all = z_diff_all.reshape((y_size * n_zdiff_per_y, vae.latent_dim))
         y_all = y_all.reshape((y_size * n_zdiff_per_y))
         
         # shuffle z_diff and y consistently
@@ -70,12 +70,12 @@ class OrderedDsprites:
         y_all = y_all[shuffle_indices]
         return z_diff_all, y_all
         
-    def compute_disentangle_metric_score(self, bvae, n_zdiff_per_y=5000, 
+    def compute_disentangle_metric_score(self, vae, n_zdiff_per_y=5000, 
         n_img_per_zdiff=64, random_seed=0):
         # seed
         np.random.seed(random_seed)
         # prep training and test data
-        zdiff, y = self.compute_zdiff_y(bvae, n_zdiff_per_y, n_img_per_zdiff)
+        zdiff, y = self.compute_zdiff_y(vae, n_zdiff_per_y, n_img_per_zdiff)
         # sklearn linear classifier
         classifier = make_pipeline(
             StandardScaler(), 
