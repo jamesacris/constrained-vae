@@ -72,5 +72,5 @@ if __name__ == "__main__":
         dis_metric = ordered_dsprites.compute_disentangle_metric_score(bvae,
             n_zdiff_per_y=args.n_zdiff_per_y, n_img_per_zdiff=args.n_img_per_zdiff,
             random_seed=args.seed)
-        with open(folder + f'/disentanglement_metric__samples={args.n_zdiff_per_y}__seed={args.seed}.txt', 'w') as f:
+        with open(folder + f'/disentanglement_metric__samples={args.n_zdiff_per_y}__imgbatch={args.n_img_per_zdiff}__seed={args.seed}.txt', 'w') as f:
             f.write(str(dis_metric))
