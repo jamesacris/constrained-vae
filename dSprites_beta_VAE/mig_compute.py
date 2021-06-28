@@ -28,20 +28,18 @@ def estimate_entropies(qz_mean, qz_log_var, qz_sample, n_samples=10000):
     # expand dimension
     # qz_mean: (N, K) -> (N, K, S)
     qz_mean = np.expand_dims(qz_mean, 2)  # (N, K, 1)
-    qz_mean = np.tile(qz_mean, (1, 1, S))
     qz_log_var = np.expand_dims(qz_log_var, 2)  # (N, K, 1)
-    qz_log_var = np.tile(qz_log_var, (1, 1, S))
     # qz_sample: (S, K) -> (N, K, S)
     qz_sample = np.expand_dims(qz_sample.T, 0)  # (1, K, S)
-    qz_sample = np.tile(qz_sample, (N, 1, 1))
 
     k = 0
     while k < S:
         batch_size = min(10, S - k)
         logqz_i = log_density(
-            tf.convert_to_tensor(qz_mean[:, :, k:k + batch_size]),
-            tf.convert_to_tensor(qz_log_var[:, :, k:k + batch_size]),
-            tf.convert_to_tensor(qz_sample[:, :, k:k + batch_size]))
+            tf.convert_to_tensor(np.tile(qz_mean, (1, 1, batch_size))),
+            tf.convert_to_tensor(np.tile(qz_log_var, (1, 1, batch_size))),
+            tf.convert_to_tensor(np.tile(qz_sample[:, :, k:k + batch_size], (N, 1, 1)))
+            )
         k += batch_size
         # computes - log q(z_i) summed over minibatch
         entropies += - tf.reduce_sum(logsumexp(logqz_i + weights, dim=0), axis=1)
