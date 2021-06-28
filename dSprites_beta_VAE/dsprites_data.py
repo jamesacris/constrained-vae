@@ -105,7 +105,6 @@ class OrderedDsprites:
             qz_sample[start:end] = z_sample
         
         # marginal entropies
-        marginal_entropies = np.zeros((K,), dtype=np.float32)
         marginal_entropies = estimate_entropies(
             qz_mean, qz_log_var, qz_sample, n_samples)
         
