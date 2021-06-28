@@ -5,6 +5,8 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import make_pipeline
 
+from mig_compute import estimate_entropies
+
 def get_dsprites_tf_dataset():
     # data have been shuffled by tensorflow
     # data will be batched before training
@@ -85,3 +87,62 @@ class OrderedDsprites:
         classifier.fit(zdiff, y)
         # score with test data
         return classifier.score(zdiff, y)
+                
+    def compute_MIG(self, vae, n_samples):
+        N = len(self.imgs)
+        K = vae.latent_dim
+
+        # encode all images
+        qz_mean = np.zeros((N, K), dtype=np.float32)
+        qz_log_var = np.zeros((N, K), dtype=np.float32)
+        qz_sample = np.zeros((N, K), dtype=np.float32)
+        batch_size = 256
+        for ibatch, start in enumerate(range(0, N, batch_size)):
+            end = min(start + batch_size, N)
+            z_mean, z_log_var, z_sample = vae.encoder.predict(self.imgs[start:end])
+            qz_mean[start:end] = z_mean
+            qz_log_var[start:end] = z_log_var
+            qz_sample[start:end] = z_sample
+        
+        # marginal entropies
+        marginal_entropies = np.zeros((K,), dtype=np.float32)
+        marginal_entropies = estimate_entropies(
+            qz_mean, qz_log_var, qz_sample, n_samples)
+        
+        # conditional entropies
+        cond_entropies = np.zeros((4, K), dtype=np.float32)
+        
+        # index slices for the entire structured data
+        slices = []
+        for sz in self.latent_sizes:
+            slices.append(slice(sz))
+        slices.append(slice(K))
+        
+        # reshape data to structured
+        reshape_id = list(self.latent_sizes) + [K,]
+        qz_mean = qz_mean.reshape(reshape_id)
+        qz_log_var = qz_log_var.reshape(reshape_id)
+        qz_sample = qz_sample.reshape(reshape_id)
+        
+        # iter over (scale, rotation, pos_x, pos_y)
+        for index_y in range(1, len(self.latent_sizes)):
+            slices_copy = slices.copy()
+            n_y = self.latent_sizes[index_y]
+            # iter over y
+            for i_y in range(n_y):
+                slices_copy[index_y] = i_y
+                qz_mean_sub = qz_mean[tuple(slices_copy)].copy().reshape((N // n_y, K))
+                qz_log_var_sub = qz_log_var[tuple(slices_copy)].copy().reshape((N // n_y, K))
+                qz_sample_sub = qz_sample[tuple(slices_copy)].copy().reshape((N // n_y, K))
+                cond_entropies = estimate_entropies(
+                    qz_mean_sub, qz_log_var_sub, qz_sample_sub, n_samples)
+                cond_entropies[index_y - 1, :] += cond_entropies / n_y
+        
+        # compute MIG
+        factor_entropies = self.latent_sizes[1:]
+        mutual_infos = marginal_entropies[None] - cond_entropies
+        mutual_infos = np.clip(np.sort(mutual_infos, axis=1)[::-1], a_min=0, a_max=None)
+        mi_normed = mutual_infos / np.log(factor_entropies)[:, None]
+        mig = np.mean(mi_normed[:, 0] - mi_normed[:, 1])
+        return mig
+        
