@@ -140,7 +140,7 @@ class OrderedDsprites:
         # compute MIG
         factor_entropies = self.latent_sizes[1:]
         mutual_infos = marginal_entropies[None] - cond_entropies
-        mutual_infos = np.clip(np.sort(mutual_infos, axis=1)[::-1], a_min=0, a_max=None)
+        mutual_infos = np.clip(np.sort(mutual_infos, axis=1)[:, ::-1], a_min=0, a_max=None)
         mi_normed = mutual_infos / np.log(factor_entropies)[:, None]
         mig = np.mean(mi_normed[:, 0] - mi_normed[:, 1])
         return mig
