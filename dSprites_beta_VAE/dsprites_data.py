@@ -133,9 +133,9 @@ class OrderedDsprites:
                 qz_mean_sub = qz_mean[tuple(slices_copy)].copy().reshape((N // n_y, K))
                 qz_log_var_sub = qz_log_var[tuple(slices_copy)].copy().reshape((N // n_y, K))
                 qz_sample_sub = qz_sample[tuple(slices_copy)].copy().reshape((N // n_y, K))
-                cond_entropies = estimate_entropies(
+                cond_ent = estimate_entropies(
                     qz_mean_sub, qz_log_var_sub, qz_sample_sub, n_samples)
-                cond_entropies[index_y - 1, :] += cond_entropies / n_y
+                cond_entropies[index_y - 1, :] += cond_ent / n_y
         
         # compute MIG
         factor_entropies = self.latent_sizes[1:]
