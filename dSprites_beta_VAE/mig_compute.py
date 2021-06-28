@@ -32,7 +32,7 @@ def estimate_entropies(qz_mean, qz_log_var, qz_sample, n_samples=10000):
     # qz_sample: (S, K) -> (N, K, S)
     qz_sample = tf.convert_to_tensor(np.expand_dims(qz_sample.T, 0))  # (1, K, S)
 
-    batch_size = 10
+    batch_size = 5
     k = 0
     while k < S:
         batch_size = min(batch_size, S - k)
