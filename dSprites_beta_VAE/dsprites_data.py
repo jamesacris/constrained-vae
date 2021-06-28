@@ -35,7 +35,7 @@ class OrderedDsprites:
     def compute_zdiff_y(self, vae, n_zdiff_per_y, n_img_per_zdiff):
         # create arrays
         y_size = self.latent_sizes.size
-        z_diff_all = np.zeros((y_size, n_zdiff_per_y, vae.latent_dim))
+        z_diff_all = np.zeros((y_size, n_zdiff_per_y, vae.latent_dim), dtype=np.float32)
         y_all = np.zeros((y_size, n_zdiff_per_y), dtype=int)
         
         for y in range(y_size):
